@@ -1,7 +1,8 @@
 {
   "name": "koala-store",
   "version": "1.0.0",
-  "description": "Koala Store - Paiement carte bancaire et crypto",
+  "private": true,
+  "description": "Koala Store avec panier détaillé et paiement Stripe/Koala",
   "main": "server.js",
   "scripts": {
     "start": "node server.js"
@@ -10,8 +11,7 @@
     "node": ">=20"
   },
   "dependencies": {
-    "pg": "^8.16.3",
-    "qrcode": "^1.5.4",
-    "stripe": "^18.5.0"
+    "pg": "^8.13.1",
+    "qrcode": "^1.5.4"
   }
 }
