@@ -1,17 +1,16 @@
 {
-  "name": "koala-store",
+  "name": "koala-store-ecommerce",
   "version": "1.0.0",
-  "private": true,
-  "description": "Koala Store avec panier détaillé et paiement Stripe/Koala",
+  "description": "Koala Store - site marchand moderne avec catalogue, panier et Stripe",
   "main": "server.js",
   "scripts": {
     "start": "node server.js"
   },
   "engines": {
-    "node": ">=20"
+    "node": ">=18"
   },
   "dependencies": {
-    "pg": "^8.13.1",
-    "qrcode": "^1.5.4"
+    "express": "^4.21.2",
+    "stripe": "^17.5.0"
   }
 }
