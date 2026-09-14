@@ -7858,7 +7858,7 @@ const server =
 </style>
 </head>
 <body>
-<header class="top"><div class="brand"><div class="logo">Koala Store<span>CRYPTO STORE</span></div><button class="cartBadge" onclick="scrollToCart()">Panier <b id="cartCount">0</b></button></div></header>
+<header class="top"><div class="brand"><div class="logo">Koala Store<span>KOALA STORE</span></div><button class="cartBadge" onclick="scrollToCart()">Panier <b id="cartCount">0</b></button></div></header>
 <main class="wrap">
   <section class="hero"><h1>Boutique test Koala</h1><p>Choisissez un objet puis testez un paiement en 3x ou 4x avec votre compte Koala Crypto.</p></section>
   <section class="grid" id="products"></section>
