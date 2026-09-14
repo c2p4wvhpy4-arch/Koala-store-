@@ -7799,47 +7799,12 @@ const server =
           url.pathname;
 
         // ====================================================
-        // HOME
-        // ====================================================
-
-        if (
-          req.method ===
-            "GET" &&
-          pathname ===
-            "/"
-        ) {
-          return sendJson(
-            res,
-            200,
-            {
-              app:
-                "Koala Crypto",
-
-              status:
-                "online",
-
-              message:
-                "Koala Crypto API fonctionne",
-
-              wallet:
-                true,
-
-              card:
-                true,
-
-              crypto_to_card:
-                true,
-            }
-          );
-        }
-
-        // ====================================================
         // KOALA STORE
         // ====================================================
 
         if (
           req.method === "GET" &&
-          (pathname === "/store" || pathname === "/shop")
+          (pathname === "/" || pathname === "/store" || pathname === "/shop")
         ) {
           const html = `
 <!doctype html>
