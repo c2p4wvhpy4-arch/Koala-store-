@@ -7841,96 +7841,200 @@ const server =
           req.method === "GET" &&
           (pathname === "/store" || pathname === "/shop")
         ) {
-          const html = `<!doctype html>
+          const html = `
+<!doctype html>
 <html lang="fr">
 <head>
-<meta charset="utf-8" />
-<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>Koala Store</title>
 <style>
-  *{box-sizing:border-box}body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;background:#f4f7f2;color:#132019}
-  .top{background:#0f2b1e;color:#fff;padding:22px 18px 28px;position:sticky;top:0;z-index:10}.brand{display:flex;align-items:center;justify-content:space-between;gap:12px;max-width:980px;margin:auto}.logo{font-size:30px;font-weight:900}.logo span{display:block;font-size:12px;letter-spacing:4px;color:#7ac895}.cartBadge{background:#fff;color:#163b29;border:0;border-radius:18px;padding:12px 16px;font-weight:800}
-  .wrap{max-width:980px;margin:auto;padding:22px 16px 60px}.hero{background:linear-gradient(135deg,#1f603d,#133d2a);color:#fff;padding:26px;border-radius:28px;margin-bottom:22px}.hero h1{margin:0 0 8px;font-size:34px}.hero p{margin:0;opacity:.85;line-height:1.45}
-  .grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}.card{background:#fff;border-radius:22px;padding:16px;box-shadow:0 10px 25px rgba(20,50,32,.08)}.pic{height:130px;border-radius:18px;background:#edf3ea;display:flex;align-items:center;justify-content:center;font-size:62px;margin-bottom:14px}.name{font-weight:850;font-size:18px}.desc{font-size:13px;color:#69746d;min-height:38px;margin-top:6px}.price{font-size:22px;font-weight:900;margin:12px 0}.buy{width:100%;border:0;border-radius:16px;background:#2d7448;color:#fff;padding:13px;font-size:15px;font-weight:800}.buy:active{transform:scale(.99)}
-  .panel{margin-top:22px;background:#fff;border-radius:24px;padding:18px;box-shadow:0 10px 25px rgba(20,50,32,.08)}.line{display:flex;justify-content:space-between;gap:12px;padding:9px 0;border-bottom:1px solid #eef0ed}.line:last-child{border:0}.total{font-size:22px;font-weight:900;margin-top:12px}.checkout{width:100%;border:0;border-radius:18px;background:#163f2b;color:#fff;padding:16px;font-size:17px;font-weight:850;margin-top:14px}.muted{color:#707b73;font-size:13px;line-height:1.45}
-  .modal{display:none;position:fixed;inset:0;background:rgba(6,20,13,.58);z-index:30;padding:20px;align-items:flex-end}.modal.open{display:flex}.sheet{background:#fff;width:100%;max-width:620px;margin:0 auto;border-radius:28px;padding:22px;max-height:88vh;overflow:auto}.sheet h2{margin-top:0}.field{margin:12px 0}.field label{display:block;font-size:13px;font-weight:750;margin-bottom:6px}.field input,.field select{width:100%;padding:14px;border:1px solid #d7ddd8;border-radius:14px;font-size:16px;background:#fff}.row{display:grid;grid-template-columns:1fr 1fr;gap:10px}.primary{width:100%;border:0;border-radius:17px;background:#2b7147;color:#fff;padding:15px;font-size:16px;font-weight:850;margin-top:10px}.secondary{width:100%;border:0;background:#edf2ee;border-radius:17px;padding:14px;font-weight:800;margin-top:8px}.status{margin-top:12px;padding:12px;border-radius:14px;background:#f4f7f3;display:none;white-space:pre-wrap}.ok{background:#eaf7ee;color:#145b31}.bad{background:#fff0ef;color:#8b2722}
-  @media(max-width:560px){.grid{grid-template-columns:1fr 1fr}.pic{height:105px;font-size:50px}.hero h1{font-size:29px}.name{font-size:16px}.price{font-size:19px}}
+*{box-sizing:border-box}
+body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif;background:#f4f7f2;color:#102017}
+.top{background:#102f21;color:#fff;padding:24px 18px;position:sticky;top:0;z-index:10}
+.head{max-width:980px;margin:auto;display:flex;align-items:center;justify-content:space-between;gap:12px}
+.brand{font-size:31px;font-weight:900}
+.brand small{display:block;margin-top:4px;font-size:11px;letter-spacing:4px;color:#8bd1a3}
+.badge{border:0;background:#fff;color:#163b29;border-radius:18px;padding:12px 16px;font-weight:900}
+.wrap{max-width:980px;margin:auto;padding:22px 16px 60px}
+.hero{background:#275e3e;color:#fff;padding:24px;border-radius:26px;margin-bottom:22px}
+.hero h1{margin:0 0 8px;font-size:31px}.hero p{margin:0;line-height:1.45;opacity:.9}
+.products{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
+.product{background:#fff;border-radius:22px;padding:15px;box-shadow:0 8px 24px rgba(20,50,32,.08)}
+.pic{height:105px;border-radius:17px;background:#edf3ea;display:flex;align-items:center;justify-content:center;font-size:50px}
+.name{font-weight:900;font-size:17px;margin-top:12px}.desc{font-size:13px;color:#737d76;min-height:38px;margin-top:5px}
+.price{font-size:20px;font-weight:900;margin:10px 0}
+.add{width:100%;border:0;border-radius:15px;background:#2d7448;color:#fff;padding:12px;font-size:15px;font-weight:900}
+.cart{margin-top:22px;background:#fff;border-radius:24px;padding:19px;box-shadow:0 8px 24px rgba(20,50,32,.08)}
+.cart h2{font-size:27px;margin:0 0 15px}
+.line{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 0;border-bottom:1px solid #edf0ed}
+.remove{border:0;background:#f1f3f1;border-radius:10px;padding:5px 9px;font-size:17px}
+.total{font-size:25px;font-weight:950;margin-top:17px}
+.validate,.pay{width:100%;border:0;border-radius:17px;padding:16px;font-size:17px;font-weight:900;margin-top:14px}
+.validate{background:#163f2b;color:#fff}.koala{background:#163f2b;color:#fff}.cardpay{background:#635bff;color:#fff}
+.payments{display:none;margin-top:18px;padding-top:5px;border-top:1px solid #e7ebe7}
+.payments.open{display:block}
+.payments h3{font-size:20px;margin:12px 0 5px}.muted{font-size:13px;color:#778078;line-height:1.4}
+.status{display:none;margin-top:12px;padding:12px;border-radius:14px;background:#fff0ef;color:#8b2722}
+@media(min-width:760px){.products{grid-template-columns:repeat(4,1fr)}}
 </style>
 </head>
 <body>
-<header class="top"><div class="brand"><div class="logo">Koala Store<span>KOALA STORE</span></div><button class="cartBadge" onclick="scrollToCart()">Panier <b id="cartCount">0</b></button></div></header>
+<header class="top">
+ <div class="head">
+  <div class="brand">Koala Store<small>KOALA STORE</small></div>
+  <button class="badge" onclick="goCart()">Panier <b id="cartCount">0</b></button>
+ </div>
+</header>
+
 <main class="wrap">
-  <section class="hero"><h1>Boutique test Koala</h1><p>Choisissez un objet puis testez un paiement en 3x ou 4x avec votre compte Koala Crypto.</p></section>
-  <section class="grid" id="products"></section>
-  <section class="panel" id="cartPanel">
-    <h2>Votre panier</h2>
-    <div id="cartLines"><p class="muted">Votre panier est vide.</p></div>
-    <div class="total">Total : <span id="cartTotal">0,00 €</span></div>
-    <button class="checkout" onclick="openCheckout()">Payer avec Koala</button>
-    <button class="checkout" id="stripeButton" onclick="payWithCard()" style="background:#635bff">💳 Payer par carte bancaire</button>
-    <p class="muted">Boutique de test. Aucun paiement n'est déclenché tant que vous ne validez pas une commande avec votre compte Koala.</p>
-  </section>
-</main>
-<div class="modal" id="checkoutModal"><div class="sheet">
-  <h2>Payer avec Koala</h2>
-  <p class="muted">Connectez-vous avec le même compte client que dans Koala Crypto.</p>
-  <div class="field"><label>Email Koala</label><input id="email" type="email" autocomplete="email" /></div>
-  <div class="field"><label>Mot de passe</label><input id="password" type="password" autocomplete="current-password" /></div>
-  <div class="row">
-    <div class="field"><label>Échéances</label><select id="installments"><option value="3">3x</option><option value="4">4x</option></select></div>
-    <div class="field"><label>Crypto</label><select id="crypto"><option value="BTC">BTC</option><option value="USDC">USDC</option><option value="USDT">USDT</option></select></div>
+ <section class="hero">
+  <h1>Bienvenue sur Koala Store</h1>
+  <p>Choisissez vos articles, ajoutez-les au panier puis validez votre commande.</p>
+ </section>
+
+ <section class="products">
+  <article class="product">
+   <div class="pic">🎧</div><div class="name">Écouteurs Nova</div>
+   <div class="desc">Écouteurs sans fil compacts.</div>
+   <div class="price">39,90 €</div>
+   <button class="add" onclick="addToCart(1)">Ajouter au panier</button>
+  </article>
+  <article class="product">
+   <div class="pic">⌚️</div><div class="name">Montre Pulse</div>
+   <div class="desc">Montre connectée de démonstration.</div>
+   <div class="price">79,90 €</div>
+   <button class="add" onclick="addToCart(2)">Ajouter au panier</button>
+  </article>
+  <article class="product">
+   <div class="pic">🎒</div><div class="name">Sac Urban</div>
+   <div class="desc">Sac urbain léger et résistant.</div>
+   <div class="price">59,90 €</div>
+   <button class="add" onclick="addToCart(3)">Ajouter au panier</button>
+  </article>
+  <article class="product">
+   <div class="pic">🔊</div><div class="name">Enceinte Mini</div>
+   <div class="desc">Petite enceinte Bluetooth.</div>
+   <div class="price">49,90 €</div>
+   <button class="add" onclick="addToCart(4)">Ajouter au panier</button>
+  </article>
+ </section>
+
+ <section class="cart" id="cartPanel">
+  <h2>Votre panier</h2>
+  <div id="cartLines"><p class="muted">Votre panier est vide.</p></div>
+  <div class="total">Total : <span id="cartTotal">0,00 €</span></div>
+  <button class="validate" onclick="validateCart()">Valider mon panier</button>
+
+  <div class="payments" id="payments">
+   <h3>Choisissez votre moyen de paiement</h3>
+   <button class="pay koala" onclick="payWithKoala()">🐨 Payer avec Koala</button>
+   <button class="pay cardpay" id="stripeButton" onclick="payWithCard()">💳 Payer par carte bancaire</button>
   </div>
-  <button class="primary" id="payButton" onclick="payWithKoala()">Créer la commande Koala</button>
-  <button class="secondary" onclick="closeCheckout()">Fermer</button>
   <div class="status" id="status"></div>
-</div></div>
+ </section>
+</main>
+
 <script>
-var PRODUCTS=[
- {id:1,name:'Écouteurs Nova',price:39.90,emoji:'🎧',desc:'Écouteurs sans fil compacts.'},
- {id:2,name:'Montre Pulse',price:79.90,emoji:'⌚️',desc:'Montre connectée de démonstration.'},
- {id:3,name:'Sac Urban',price:59.90,emoji:'🎒',desc:'Sac urbain léger et résistant.'},
- {id:4,name:'Enceinte Mini',price:49.90,emoji:'🔊',desc:'Petite enceinte Bluetooth.'}
-];
+var PRODUCTS={
+ 1:{id:1,name:"Écouteurs Nova",price:39.90},
+ 2:{id:2,name:"Montre Pulse",price:79.90},
+ 3:{id:3,name:"Sac Urban",price:59.90},
+ 4:{id:4,name:"Enceinte Mini",price:49.90}
+};
 var cart=[];
-function euro(n){return Number(n).toLocaleString('fr-FR',{minimumFractionDigits:2,maximumFractionDigits:2})+' €';}
-function renderProducts(){var root=document.getElementById('products');root.innerHTML='';PRODUCTS.forEach(function(p){var el=document.createElement('article');el.className='card';el.innerHTML='<div class="pic">'+p.emoji+'</div><div class="name">'+p.name+'</div><div class="desc">'+p.desc+'</div><div class="price">'+euro(p.price)+'</div><button class="buy">Ajouter</button>';el.querySelector('button').onclick=function(){addToCart(p.id)};root.appendChild(el);});}
-function addToCart(id){var p=PRODUCTS.find(function(x){return x.id===id});if(!p)return;cart.push(p);renderCart();}
-function renderCart(){var lines=document.getElementById('cartLines');var total=cart.reduce(function(s,p){return s+p.price},0);document.getElementById('cartCount').textContent=cart.length;document.getElementById('cartTotal').textContent=euro(total);if(!cart.length){lines.innerHTML='<p class="muted">Votre panier est vide.</p>';return;}lines.innerHTML='';cart.forEach(function(p,i){var d=document.createElement('div');d.className='line';d.innerHTML='<span>'+p.name+'</span><span>'+euro(p.price)+' <button aria-label="Retirer" style="border:0;background:none;font-size:18px">×</button></span>';d.querySelector('button').onclick=function(){cart.splice(i,1);renderCart()};lines.appendChild(d);});}
-function scrollToCart(){document.getElementById('cartPanel').scrollIntoView({behavior:'smooth'});}
-function openCheckout(){if(!cart.length){alert('Ajoutez au moins un objet au panier.');return;}document.getElementById('checkoutModal').classList.add('open');}
-function closeCheckout(){document.getElementById('checkoutModal').classList.remove('open');}
-function showStatus(text,kind){var el=document.getElementById('status');el.style.display='block';el.className='status '+(kind||'');el.textContent=text;}
-async function payWithKoala(){
- var total=cart.reduce(function(s,p){return s+p.price},0);if(total<=0){showStatus('Panier vide.','bad');return;}
- var email=document.getElementById('email').value.trim();var password=document.getElementById('password').value;var count=Number(document.getElementById('installments').value);var crypto=document.getElementById('crypto').value;
- if(!email||!password){showStatus('Email et mot de passe requis.','bad');return;}
- var btn=document.getElementById('payButton');btn.disabled=true;btn.textContent='Connexion...';
- try{
-  var loginRes=await fetch('/api/auth/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email:email,password:password})});
-  var login=await loginRes.json();if(!loginRes.ok||!login.token){throw new Error(login.error||'Connexion impossible.');}
-  btn.textContent='Création de la commande...';
-  var orderRes=await fetch('/api/orders',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+login.token},body:JSON.stringify({merchant_id:1,amount_eur:Number(total.toFixed(2)),crypto:crypto,installments_count:count})});
-  var order=await orderRes.json();if(!orderRes.ok){throw new Error(order.error||'Création de commande impossible.');}
-  var msg='✅ Commande Koala créée.\nTotal : '+euro(total)+'\nPaiement : '+count+'x en '+crypto;
-  if(order.order&&order.order.id){msg+='\nCommande n°'+order.order.id;} else if(order.id){msg+='\nCommande n°'+order.id;}
-  showStatus(msg,'ok');cart=[];renderCart();
- }catch(e){showStatus('Erreur : '+e.message,'bad');}
- finally{btn.disabled=false;btn.textContent='Créer la commande Koala';}
-}
 
+function euro(n){
+ return Number(n).toLocaleString("fr-FR",{minimumFractionDigits:2,maximumFractionDigits:2})+" €";
+}
+function total(){
+ return cart.reduce(function(s,p){return s+p.price;},0);
+}
+function addToCart(id){
+ var p=PRODUCTS[id];
+ if(!p)return;
+ cart.push({id:p.id,name:p.name,price:p.price});
+ document.getElementById("payments").classList.remove("open");
+ renderCart();
+ goCart();
+}
+function removeItem(i){
+ cart.splice(i,1);
+ document.getElementById("payments").classList.remove("open");
+ renderCart();
+}
+function renderCart(){
+ var root=document.getElementById("cartLines");
+ document.getElementById("cartCount").textContent=cart.length;
+ document.getElementById("cartTotal").textContent=euro(total());
+ if(!cart.length){
+  root.innerHTML='<p class="muted">Votre panier est vide.</p>';
+  return;
+ }
+ root.innerHTML="";
+ cart.forEach(function(p,i){
+  var row=document.createElement("div");
+  row.className="line";
+  var left=document.createElement("span");
+  left.textContent=p.name;
+  var right=document.createElement("span");
+  right.appendChild(document.createTextNode(euro(p.price)+" "));
+  var b=document.createElement("button");
+  b.className="remove";
+  b.textContent="×";
+  b.onclick=function(){removeItem(i);};
+  right.appendChild(b);
+  row.appendChild(left);
+  row.appendChild(right);
+  root.appendChild(row);
+ });
+}
+function goCart(){
+ document.getElementById("cartPanel").scrollIntoView({behavior:"smooth"});
+}
+function validateCart(){
+ if(!cart.length){
+  alert("Ajoutez au moins un article avant de valider votre panier.");
+  return;
+ }
+ document.getElementById("payments").classList.add("open");
+ document.getElementById("payments").scrollIntoView({behavior:"smooth"});
+}
+function payWithKoala(){
+ var amount=total();
+ if(amount<=0){alert("Votre panier est vide.");return;}
+ var successUrl=window.location.origin+"/store/success";
+ var cancelUrl=window.location.origin+"/store/cancel";
+ var target="https://koala6.onrender.com/?merchant_id=1"+
+  "&amount="+encodeURIComponent(amount.toFixed(2))+
+  "&merchant="+encodeURIComponent("Koala Store")+
+  "&success_url="+encodeURIComponent(successUrl)+
+  "&cancel_url="+encodeURIComponent(cancelUrl);
+ window.location.href=target;
+}
 async function payWithCard(){
- var total=cart.reduce(function(s,p){return s+p.price},0);
- if(total<=0){alert('Ajoutez au moins un objet au panier.');return;}
- var btn=document.getElementById('stripeButton');btn.disabled=true;btn.textContent='Connexion à Stripe...';
+ if(!cart.length){alert("Votre panier est vide.");return;}
+ var btn=document.getElementById("stripeButton");
+ btn.disabled=true;
+ btn.textContent="Connexion à Stripe...";
  try{
-  var r=await fetch('/store/card',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({product_ids:cart.map(function(p){return p.id;})})});
+  var r=await fetch("/store/card",{
+   method:"POST",
+   headers:{"Content-Type":"application/json"},
+   body:JSON.stringify({product_ids:cart.map(function(p){return p.id;})})
+  });
   var data=await r.json();
-  if(!r.ok||!data.url){throw new Error(data.error||'Impossible de créer le paiement Stripe.');}
+  if(!r.ok||!data.url)throw new Error(data.error||"Paiement Stripe impossible.");
   window.location.href=data.url;
- }catch(e){alert(e.message||'Erreur Stripe.');btn.disabled=false;btn.textContent='💳 Payer par carte bancaire';}
+ }catch(e){
+  var s=document.getElementById("status");
+  s.style.display="block";
+  s.textContent=e.message||"Erreur Stripe.";
+  btn.disabled=false;
+  btn.textContent="💳 Payer par carte bancaire";
+ }
 }
-
-renderProducts();renderCart();
+renderCart();
 </script>
 </body>
 </html>`;
