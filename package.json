@@ -1,13 +1,9 @@
 {
-  "name": "koala-store-ecommerce",
-  "version": "1.0.0",
-  "description": "Koala Store - site marchand moderne avec catalogue, panier et Stripe",
+  "name": "koala-store",
+  "version": "2.0.0",
   "main": "server.js",
   "scripts": {
     "start": "node server.js"
-  },
-  "engines": {
-    "node": ">=18"
   },
   "dependencies": {
     "express": "^4.21.2",
