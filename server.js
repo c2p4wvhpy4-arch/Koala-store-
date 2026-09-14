@@ -7850,68 +7850,247 @@ const server =
   <title>Koala Store</title>
   <style>
     * { box-sizing: border-box; }
+
     body {
       margin: 0;
-      padding: 24px;
-      font-family: Arial, sans-serif;
-      background: #f5f7fa;
+      padding: 20px;
+      font-family: Arial, Helvetica, sans-serif;
+      background: #f4f6f9;
       color: #111827;
     }
-    .container {
-      max-width: 600px;
-      margin: 40px auto;
+
+    .page {
+      max-width: 720px;
+      margin: 30px auto 80px;
     }
+
+    .header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 14px;
+      margin-bottom: 20px;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .logo {
+      font-size: 42px;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: 34px;
+      line-height: 1;
+    }
+
+    .cart-badge {
+      background: #111827;
+      color: white;
+      border-radius: 999px;
+      padding: 10px 14px;
+      font-weight: 800;
+      white-space: nowrap;
+    }
+
     .card {
       background: white;
       border-radius: 24px;
-      padding: 28px;
-      box-shadow: 0 10px 30px rgba(0,0,0,0.08);
+      padding: 24px;
+      box-shadow: 0 10px 30px rgba(0,0,0,.07);
     }
-    h1 {
-      margin-top: 0;
-      font-size: 32px;
-    }
-    .koala { font-size: 52px; }
+
     .subtitle {
       color: #6b7280;
       font-size: 17px;
       line-height: 1.5;
+      margin: 8px 0 24px;
     }
-    .price {
-      font-size: 34px;
-      font-weight: bold;
-      margin: 25px 0;
+
+    .product {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      padding: 18px 0;
+      border-top: 1px solid #e5e7eb;
+      border-bottom: 1px solid #e5e7eb;
     }
+
+    .product-image {
+      width: 76px;
+      height: 76px;
+      flex: 0 0 76px;
+      border-radius: 18px;
+      background: #f3f4f6;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 40px;
+    }
+
+    .product-info {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .product-name {
+      font-size: 19px;
+      font-weight: 800;
+      margin-bottom: 6px;
+    }
+
+    .product-note {
+      color: #6b7280;
+      font-size: 14px;
+    }
+
+    .product-price {
+      font-size: 21px;
+      font-weight: 900;
+      white-space: nowrap;
+    }
+
+    .cart-title {
+      margin: 26px 0 14px;
+      font-size: 24px;
+      font-weight: 900;
+    }
+
+    .summary-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      padding: 8px 0;
+      color: #4b5563;
+    }
+
+    .summary-row.total {
+      border-top: 1px solid #e5e7eb;
+      margin-top: 10px;
+      padding-top: 18px;
+      color: #111827;
+      font-size: 25px;
+      font-weight: 900;
+    }
+
+    .actions {
+      margin-top: 24px;
+      display: grid;
+      gap: 12px;
+    }
+
     .button {
-      display: block;
       width: 100%;
-      padding: 17px;
-      border-radius: 14px;
-      background: #111827;
-      color: white;
+      min-height: 58px;
+      border: 0;
+      border-radius: 16px;
+      padding: 16px 18px;
+      font: inherit;
+      font-size: 18px;
+      font-weight: 900;
       text-align: center;
       text-decoration: none;
-      font-size: 18px;
-      font-weight: bold;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .koala-button {
+      background: #111827;
+      color: white;
+    }
+
+    .stripe-button {
+      background: #635bff;
+      color: white;
+    }
+
+    .secure {
+      margin-top: 16px;
+      text-align: center;
+      color: #9ca3af;
+      font-size: 13px;
+    }
+
+    @media (max-width: 520px) {
+      body { padding: 14px; }
+      .page { margin-top: 18px; }
+      .card { padding: 20px; border-radius: 22px; }
+      h1 { font-size: 30px; }
+      .product { align-items: flex-start; }
+      .product-image { width: 64px; height: 64px; flex-basis: 64px; }
+      .product-price { font-size: 18px; }
     }
   </style>
 </head>
 <body>
-  <div class="container">
-    <div class="card">
-      <div class="koala">🐨</div>
-      <h1>Koala Store</h1>
+  <main class="page">
+    <div class="header">
+      <div class="brand">
+        <div class="logo">🐨</div>
+        <h1>Koala Store</h1>
+      </div>
+      <div class="cart-badge">🛒 Panier · 1</div>
+    </div>
+
+    <section class="card">
       <p class="subtitle">
         Boutique de démonstration Koala Crypto.
-        Testez le paiement en plusieurs fois avec Koala.
+        Votre article est bien présent dans le panier.
       </p>
-      <div class="price">100,00 €</div>
-      <a class="button" href="https://koala6.onrender.com/?merchant_id=1&amount=100&merchant=Koala%20Store&success_url=https%3A%2F%2Fkoala-2-trqv.onrender.com%2Fstore%2Fsuccess&cancel_url=https%3A%2F%2Fkoala-2-trqv.onrender.com%2Fstore%2Fcancel">Payer avec Koala</a>
-      <form method="POST" action="/store/card" style="margin-top:14px;">
-        <button type="submit" class="button" style="border:0;cursor:pointer;background:#635bff;">💳 Payer par carte bancaire</button>
-      </form>
-    </div>
-  </div>
+
+      <div class="product">
+        <div class="product-image">🛍️</div>
+        <div class="product-info">
+          <div class="product-name">Commande Koala Store</div>
+          <div class="product-note">Quantité : 1</div>
+        </div>
+        <div class="product-price">100,00 €</div>
+      </div>
+
+      <div class="cart-title">Votre panier</div>
+
+      <div class="summary-row">
+        <span>Sous-total</span>
+        <strong>100,00 €</strong>
+      </div>
+
+      <div class="summary-row">
+        <span>Livraison</span>
+        <strong>0,00 €</strong>
+      </div>
+
+      <div class="summary-row total">
+        <span>Total</span>
+        <span>100,00 €</span>
+      </div>
+
+      <div class="actions">
+        <a
+          class="button koala-button"
+          href="https://koala6.onrender.com/?merchant_id=1&amount=100&merchant=Koala%20Store&success_url=https%3A%2F%2Fkoala-2-trqv.onrender.com%2Fstore%2Fsuccess&cancel_url=https%3A%2F%2Fkoala-2-trqv.onrender.com%2Fstore%2Fcancel"
+        >
+          🐨 Payer avec Koala
+        </a>
+
+        <form method="POST" action="/store/card" style="margin:0;">
+          <button type="submit" class="button stripe-button">
+            💳 Payer par carte bancaire
+          </button>
+        </form>
+      </div>
+
+      <div class="secure">
+        Paiement sécurisé · Total de la commande : 100,00 €
+      </div>
+    </section>
+  </main>
 </body>
 </html>
           `;
