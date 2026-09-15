@@ -27,16 +27,10 @@ const stripe = STRIPE_SECRET_KEY
   : null;
 
 // ============================================================
-// OUTILS HTTP
+// OUTILS
 // ============================================================
 
-function send(
-  res,
-  status,
-  type,
-  body,
-  headers = {}
-) {
+function send(res, status, type, body, headers = {}) {
   res.writeHead(status, {
     "Content-Type": type,
     "Cache-Control": "no-store",
@@ -62,18 +56,14 @@ function readJson(req) {
     req.on("data", chunk => {
       body += chunk;
 
-      if (body.length > 1_000_000) {
+      if (body.length > 1000000) {
         req.destroy();
       }
     });
 
     req.on("end", () => {
       try {
-        resolve(
-          body
-            ? JSON.parse(body)
-            : {}
-        );
+        resolve(body ? JSON.parse(body) : {});
       } catch (error) {
         reject(error);
       }
@@ -88,12 +78,18 @@ function money(value) {
 }
 
 // ============================================================
-// PAGE KOALA STORE
+// PAGE PRINCIPALE
 // ============================================================
 
 function pageHtml(url) {
-  const success =
+  const cryptoSuccess =
     url.searchParams.get("status") === "paid";
+
+  const stripeSuccess =
+    url.searchParams.get("stripe") === "success";
+
+  const stripeCancelled =
+    url.searchParams.get("stripe") === "cancel";
 
   const orderId =
     url.searchParams.get("order_id") || "";
@@ -101,17 +97,8 @@ function pageHtml(url) {
   const amount =
     url.searchParams.get("amount") || "";
 
-  const merchant =
-    url.searchParams.get("merchant") ||
-    "Koala Store";
-
-  const stripeSuccess =
-    url.searchParams.get("stripe") === "success";
-
-  const cancelled =
-    url.searchParams.get("stripe") === "cancel";
-
   return `<!doctype html>
+
 <html lang="fr">
 
 <head>
@@ -120,7 +107,7 @@ function pageHtml(url) {
 
 <meta
   name="viewport"
-  content="width=device-width,initial-scale=1"
+  content="width=device-width,initial-scale=1,maximum-scale=1"
 >
 
 <title>Koala Store</title>
@@ -133,207 +120,459 @@ function pageHtml(url) {
 
 body {
   margin: 0;
+  background: #f5f5f5;
+  color: #151515;
   font-family:
     -apple-system,
     BlinkMacSystemFont,
     "Segoe UI",
     Arial,
     sans-serif;
-  background: #f5f7fb;
-  color: #111827;
+  padding-bottom: 90px;
 }
 
-header {
+button,
+input {
+  font: inherit;
+}
+
+button {
+  cursor: pointer;
+}
+
+/* ==========================================================
+   HEADER
+   ========================================================== */
+
+.top {
   position: sticky;
   top: 0;
-  z-index: 5;
-  background: #fff;
-  border-bottom: 1px solid #e5e7eb;
-  padding: 16px 18px;
+  z-index: 100;
+  background: white;
+  padding:
+    max(12px, env(safe-area-inset-top))
+    12px
+    10px;
+  border-bottom: 1px solid #eee;
+}
+
+.topline {
   display: flex;
-  justify-content: space-between;
   align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
 }
 
-.brand {
-  font-weight: 900;
+.logo {
   font-size: 22px;
+  font-weight: 950;
 }
 
-.badge {
-  background: #111827;
+.cart-top {
+  border: 0;
+  background: #111;
   color: white;
   border-radius: 999px;
-  padding: 7px 11px;
+  padding: 8px 12px;
   font-weight: 800;
 }
 
-main {
-  max-width: 1000px;
-  margin: auto;
-  padding: 18px;
+.search {
+  display: flex;
+  align-items: center;
+  border: 2px solid #111;
+  border-radius: 999px;
+  overflow: hidden;
+  background: white;
 }
 
-.hero {
+.search input {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  outline: 0;
+  padding: 12px 15px;
+  font-size: 16px;
+}
+
+.search button {
+  border: 0;
+  background: #111;
+  color: white;
+  padding: 12px 17px;
+  font-weight: 900;
+}
+
+/* ==========================================================
+   MESSAGES
+   ========================================================== */
+
+.notice {
+  margin: 12px;
+  padding: 14px;
+  border-radius: 14px;
+  background: #ecfdf5;
+  border: 1px solid #86efac;
+  color: #166534;
+  font-weight: 800;
+}
+
+.notice.cancel {
+  background: #fff7ed;
+  border-color: #fdba74;
+  color: #9a3412;
+}
+
+/* ==========================================================
+   PROMOTION
+   ========================================================== */
+
+.promo {
+  margin: 12px;
+  border-radius: 18px;
+  padding: 18px;
   background:
     linear-gradient(
       135deg,
       #111827,
       #374151
     );
-  color: #fff;
-  border-radius: 22px;
-  padding: 24px;
-  margin-bottom: 18px;
+  color: white;
 }
 
-.hero h1 {
-  margin: 0 0 8px;
-  font-size: 30px;
+.promo-title {
+  font-size: 27px;
+  font-weight: 950;
+  margin-bottom: 6px;
 }
 
-.hero p {
-  margin: 0;
-  opacity: .85;
+.promo-text {
+  opacity: .88;
 }
 
-.notice {
-  background: #ecfdf5;
-  border: 1px solid #a7f3d0;
-  color: #065f46;
-  padding: 14px;
-  border-radius: 14px;
-  margin-bottom: 16px;
-  font-weight: 700;
+.promo-badge {
+  display: inline-block;
+  margin-top: 12px;
+  background: white;
+  color: #111827;
+  border-radius: 999px;
+  padding: 7px 11px;
+  font-weight: 900;
 }
 
-.warn {
-  background: #fff7ed;
-  border-color: #fed7aa;
-  color: #9a3412;
+/* ==========================================================
+   CATEGORIES
+   ========================================================== */
+
+.categories {
+  display: flex;
+  gap: 9px;
+  overflow-x: auto;
+  padding: 4px 12px 13px;
+  scrollbar-width: none;
 }
 
-.grid {
+.category {
+  flex: 0 0 auto;
+  border: 1px solid #ddd;
+  background: white;
+  border-radius: 999px;
+  padding: 9px 14px;
+  font-weight: 750;
+}
+
+.category.active {
+  background: #111;
+  color: white;
+  border-color: #111;
+}
+
+/* ==========================================================
+   TITRE
+   ========================================================== */
+
+.section-title {
+  padding: 4px 12px 10px;
+  font-size: 20px;
+  font-weight: 950;
+}
+
+/* ==========================================================
+   PRODUITS
+   ========================================================== */
+
+.products {
   display: grid;
-  grid-template-columns:
-    repeat(2, 1fr);
-  gap: 14px;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 8px;
+  padding: 0 8px 16px;
 }
 
-.card,
-.checkout {
-  background: #fff;
-  border: 1px solid #e5e7eb;
+.product {
+  background: white;
+  overflow: hidden;
+  border-radius: 12px;
+  border: 1px solid #eee;
+}
+
+.product-image {
+  height: 190px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  font-size: 74px;
+  background:
+    linear-gradient(
+      145deg,
+      #f8fafc,
+      #e5e7eb
+    );
+  cursor: pointer;
+}
+
+.product-info {
+  padding: 10px;
+}
+
+.product-name {
+  font-weight: 750;
+  font-size: 14px;
+  line-height: 1.25;
+  min-height: 35px;
+}
+
+.rating {
+  font-size: 12px;
+  margin: 5px 0;
+  color: #f59e0b;
+}
+
+.sold {
+  color: #777;
+}
+
+.old-price {
+  font-size: 12px;
+  color: #888;
+  text-decoration: line-through;
+}
+
+.product-price {
+  font-size: 20px;
+  font-weight: 950;
+  margin-top: 2px;
+}
+
+.discount {
+  display: inline-block;
+  font-size: 11px;
+  background: #fee2e2;
+  color: #dc2626;
+  padding: 3px 5px;
+  border-radius: 5px;
+  font-weight: 850;
+}
+
+.add {
+  width: 100%;
+  margin-top: 8px;
+  padding: 10px;
+  border: 0;
+  border-radius: 9px;
+  background: #111;
+  color: white;
+  font-weight: 850;
+}
+
+/* ==========================================================
+   MODAL PRODUIT / PANIER
+   ========================================================== */
+
+.overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  z-index: 500;
+  background: rgba(0,0,0,.5);
+  align-items: flex-end;
+}
+
+.overlay.show {
+  display: flex;
+}
+
+.sheet {
+  width: 100%;
+  max-height: 92vh;
+  overflow-y: auto;
+  background: white;
+  border-radius: 24px 24px 0 0;
+  padding: 18px;
+  padding-bottom:
+    calc(25px + env(safe-area-inset-bottom));
+}
+
+.handle {
+  width: 45px;
+  height: 5px;
+  background: #ddd;
+  border-radius: 999px;
+  margin: 0 auto 15px;
+}
+
+.close {
+  float: right;
+  border: 0;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  font-size: 20px;
+  background: #eee;
+}
+
+.detail-image {
+  height: 260px;
   border-radius: 18px;
-  padding: 16px;
-  box-shadow:
-    0 5px 20px rgba(0,0,0,.04);
-}
-
-.product-img {
-  height: 130px;
-  border-radius: 14px;
-  background: #eef2ff;
+  background: #f1f5f9;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 48px;
+  font-size: 110px;
+  margin-bottom: 16px;
 }
 
-h3 {
-  margin: 12px 0 5px;
+.detail-name {
+  font-size: 23px;
+  font-weight: 950;
 }
 
-.price {
-  font-weight: 900;
-  font-size: 20px;
+.detail-price {
+  font-size: 28px;
+  font-weight: 950;
+  margin: 8px 0;
 }
 
-.btn {
-  width: 100%;
-  border: 0;
-  border-radius: 13px;
-  padding: 13px 14px;
-  font-size: 16px;
-  font-weight: 800;
-  cursor: pointer;
-  background: #111827;
-  color: #fff;
-  margin-top: 10px;
+.detail-description {
+  color: #555;
+  line-height: 1.45;
 }
 
-.btn.secondary {
-  background: #eef2f7;
-  color: #111827;
-}
+/* ==========================================================
+   OPTIONS
+   ========================================================== */
 
-.btn.crypto {
-  background: #16a34a;
-}
-
-.btn:disabled {
-  opacity: .45;
-}
-
-.checkout {
+.option-title {
   margin-top: 18px;
+  font-weight: 900;
 }
 
-.line {
+.options {
   display: flex;
-  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 9px;
+}
+
+.option {
+  border: 1px solid #ddd;
+  background: white;
+  border-radius: 9px;
+  padding: 9px 13px;
+  font-weight: 700;
+}
+
+.option.selected {
+  border: 2px solid #111;
+}
+
+/* ==========================================================
+   PANIER
+   ========================================================== */
+
+.cart-row {
+  display: grid;
+  grid-template-columns: 55px 1fr auto;
   gap: 10px;
-  padding: 10px 0;
+  padding: 12px 0;
   border-bottom: 1px solid #eee;
-}
-
-.qty {
-  display: flex;
-  gap: 7px;
   align-items: center;
 }
 
-.mini {
-  border: 0;
-  border-radius: 9px;
-  padding: 7px 10px;
+.cart-icon {
+  width: 55px;
+  height: 55px;
+  background: #f1f5f9;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 29px;
+}
+
+.cart-name {
+  font-weight: 850;
+}
+
+.cart-price {
   font-weight: 900;
+  margin-top: 4px;
+}
+
+.quantity {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.quantity button {
+  border: 0;
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
+  font-weight: 950;
 }
 
 .total {
-  font-size: 23px;
-  font-weight: 900;
   display: flex;
   justify-content: space-between;
-  padding: 16px 0;
+  font-size: 23px;
+  font-weight: 950;
+  padding: 18px 0;
 }
 
-.methods {
+/* ==========================================================
+   PAIEMENT
+   ========================================================== */
+
+.payment-title {
+  font-size: 17px;
+  font-weight: 900;
+  margin-bottom: 10px;
+}
+
+.payment-methods {
   display: grid;
-  grid-template-columns:
-    1fr 1fr;
-  gap: 10px;
+  grid-template-columns: 1fr 1fr;
+  gap: 9px;
 }
 
-.method,
-.plan {
+.payment-method {
   border: 2px solid #e5e7eb;
-  background: #fff;
-  border-radius: 13px;
-  padding: 13px;
-  font-weight: 800;
+  background: white;
+  padding: 13px 8px;
+  border-radius: 12px;
+  font-weight: 850;
 }
 
-.selected {
-  border-color: #111827;
+.payment-method.selected {
+  border-color: #111;
   background: #f3f4f6;
 }
 
 .plans {
   display: none;
-  grid-template-columns:
-    1fr 1fr;
-  gap: 10px;
+  grid-template-columns: 1fr 1fr;
+  gap: 9px;
   margin-top: 10px;
 }
 
@@ -341,31 +580,114 @@ h3 {
   display: grid;
 }
 
-.small {
-  font-size: 13px;
-  color: #6b7280;
-  margin-top: 7px;
+.plan {
+  border: 2px solid #ddd;
+  background: white;
+  border-radius: 12px;
+  padding: 12px;
+  font-weight: 850;
 }
 
-@media (min-width:760px) {
+.plan.selected {
+  border-color: #16a34a;
+  background: #f0fdf4;
+}
 
-  .grid {
+.plan-small {
+  display: block;
+  font-size: 11px;
+  margin-top: 4px;
+  color: #666;
+}
+
+.pay {
+  width: 100%;
+  border: 0;
+  margin-top: 14px;
+  padding: 15px;
+  border-radius: 13px;
+  background: #111;
+  color: white;
+  font-weight: 950;
+  font-size: 17px;
+}
+
+.pay.crypto {
+  background: #16a34a;
+}
+
+.pay:disabled {
+  opacity: .45;
+}
+
+.message {
+  margin-top: 10px;
+  font-size: 13px;
+  color: #555;
+}
+
+/* ==========================================================
+   NAVIGATION BAS
+   ========================================================== */
+
+.bottom-nav {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 300;
+  height:
+    calc(67px + env(safe-area-inset-bottom));
+  padding-bottom:
+    env(safe-area-inset-bottom);
+  background: white;
+  border-top: 1px solid #ddd;
+  display: grid;
+  grid-template-columns:
+    repeat(4, 1fr);
+}
+
+.nav-item {
+  border: 0;
+  background: white;
+  font-size: 11px;
+  font-weight: 750;
+}
+
+.nav-icon {
+  display: block;
+  font-size: 22px;
+  margin-bottom: 2px;
+}
+
+.nav-item.active {
+  font-weight: 950;
+}
+
+/* ==========================================================
+   DESKTOP
+   ========================================================== */
+
+@media (min-width: 800px) {
+
+  body {
+    max-width: 1100px;
+    margin: auto;
+  }
+
+  .products {
     grid-template-columns:
       repeat(4, 1fr);
+    gap: 14px;
   }
 
-  .layout {
-    display: grid;
-    grid-template-columns:
-      1.6fr 1fr;
-    gap: 18px;
+  .product-image {
+    height: 240px;
   }
 
-  .checkout {
-    margin-top: 0;
-    height: max-content;
-    position: sticky;
-    top: 80px;
+  .sheet {
+    max-width: 600px;
+    margin: auto;
   }
 
 }
@@ -376,166 +698,305 @@ h3 {
 
 <body>
 
-<header>
+<div class="top">
 
-<div class="brand">
-🐨 Koala Store
+  <div class="topline">
+
+    <div class="logo">
+      🐨 Koala Store
+    </div>
+
+    <button
+      class="cart-top"
+      onclick="openCart()"
+    >
+      🛒
+      <span id="top-count">0</span>
+    </button>
+
+  </div>
+
+  <div class="search">
+
+    <input
+      id="search"
+      type="search"
+      placeholder="Rechercher dans Koala Store"
+      oninput="searchProducts()"
+    >
+
+    <button onclick="searchProducts()">
+      🔍
+    </button>
+
+  </div>
+
 </div>
 
-<div class="badge">
-Panier
-<span id="count">0</span>
-</div>
-
-</header>
-
-<main>
-
-${success
-  ? '<div class="notice">Paiement Koala Crypto confirmé ✅<br><span style="font-weight:500">Commande ' +
-    orderId +
-    ' · ' +
-    (amount
-      ? money(amount) + ' € · '
-      : '') +
-    merchant +
-    '</span></div>'
+${cryptoSuccess
+  ? '<div class="notice">Paiement Koala Crypto confirmé ✅' +
+    (orderId ? '<br>Commande ' + orderId : '') +
+    (amount ? ' · ' + money(amount) + ' €' : '') +
+    '</div>'
   : ''
 }
 
 ${stripeSuccess
-  ? '<div class="notice">Paiement par carte confirmé ✅</div>'
+  ? '<div class="notice">Paiement par carte Stripe confirmé ✅</div>'
   : ''
 }
 
-${cancelled
-  ? '<div class="notice warn">Paiement par carte annulé.</div>'
+${stripeCancelled
+  ? '<div class="notice cancel">Paiement par carte annulé.</div>'
   : ''
 }
 
-<div class="hero">
+<div class="promo">
 
-<h1>
-Koala Store
-</h1>
+  <div class="promo-title">
+    Koala Store
+  </div>
 
-<p>
-Choisissez vos articles puis payez
-par carte bancaire ou avec
-Koala Crypto.
-</p>
+  <div class="promo-text">
+    Découvrez nos nouveautés et ajoutez
+    vos articles préférés au panier.
+  </div>
+
+  <div class="promo-badge">
+    Paiement CB ou Koala Crypto
+  </div>
 
 </div>
 
-<div class="layout">
+<div class="categories" id="categories">
 
-<section>
+  <button
+    class="category active"
+    onclick="setCategory('Tous',this)"
+  >
+    Pour vous
+  </button>
+
+  <button
+    class="category"
+    onclick="setCategory('Mode',this)"
+  >
+    👕 Mode
+  </button>
+
+  <button
+    class="category"
+    onclick="setCategory('Maison',this)"
+  >
+    🏠 Maison
+  </button>
+
+  <button
+    class="category"
+    onclick="setCategory('Tech',this)"
+  >
+    🎧 Tech
+  </button>
+
+  <button
+    class="category"
+    onclick="setCategory('Accessoires',this)"
+  >
+    👜 Accessoires
+  </button>
+
+</div>
+
+<div class="section-title">
+  Sélection pour vous
+</div>
 
 <div
-  class="grid"
+  class="products"
   id="products"
 ></div>
 
-</section>
-
-<aside class="checkout">
-
-<h2 style="margin-top:0">
-Votre panier
-</h2>
-
-<div id="cart">
-
-<div class="small">
-Votre panier est vide.
-</div>
-
-</div>
-
-<div class="total">
-
-<span>
-Total
-</span>
-
-<span id="total">
-0,00 €
-</span>
-
-</div>
-
-<div class="methods">
-
-<button
-  class="method selected"
-  id="m-card"
-  onclick="selectPayment('card')"
->
-💳 Carte bancaire
-</button>
-
-<button
-  class="method"
-  id="m-crypto"
-  onclick="selectPayment('crypto')"
->
-₿ Koala Crypto
-</button>
-
-</div>
+<!-- ========================================================
+     MODAL PRODUIT
+     ======================================================== -->
 
 <div
-  class="plans"
-  id="plans"
+  class="overlay"
+  id="product-overlay"
+  onclick="overlayClose(event,'product-overlay')"
 >
 
-<button
-  class="plan selected"
-  id="p-3"
-  onclick="selectPlan(3)"
->
-3x
-<br>
-<span
-  id="p3"
-  class="small"
-></span>
-</button>
+  <div class="sheet">
 
-<button
-  class="plan"
-  id="p-4"
-  onclick="selectPlan(4)"
->
-4x
-<br>
-<span
-  id="p4"
-  class="small"
-></span>
-</button>
+    <div class="handle"></div>
+
+    <button
+      class="close"
+      onclick="closeProduct()"
+    >
+      ×
+    </button>
+
+    <div id="product-detail"></div>
+
+  </div>
 
 </div>
 
-<button
-  class="btn"
-  id="pay"
-  onclick="pay()"
-  disabled
->
-Payer par carte
-</button>
+<!-- ========================================================
+     PANIER
+     ======================================================== -->
 
 <div
-  class="small"
-  id="msg"
-></div>
+  class="overlay"
+  id="cart-overlay"
+  onclick="overlayClose(event,'cart-overlay')"
+>
 
-</aside>
+  <div class="sheet">
+
+    <div class="handle"></div>
+
+    <button
+      class="close"
+      onclick="closeCart()"
+    >
+      ×
+    </button>
+
+    <h2>
+      Votre panier
+    </h2>
+
+    <div id="cart-content"></div>
+
+    <div class="total">
+
+      <span>
+        Total
+      </span>
+
+      <span id="cart-total">
+        0,00 €
+      </span>
+
+    </div>
+
+    <div class="payment-title">
+      Moyen de paiement
+    </div>
+
+    <div class="payment-methods">
+
+      <button
+        class="payment-method selected"
+        id="payment-card"
+        onclick="selectPayment('card')"
+      >
+        💳<br>
+        Carte bancaire
+      </button>
+
+      <button
+        class="payment-method"
+        id="payment-crypto"
+        onclick="selectPayment('crypto')"
+      >
+        🐨<br>
+        Koala Crypto
+      </button>
+
+    </div>
+
+    <div
+      class="plans"
+      id="plans"
+    >
+
+      <button
+        class="plan selected"
+        id="plan-3"
+        onclick="selectPlan(3)"
+      >
+        Paiement 3x
+        <span
+          class="plan-small"
+          id="amount-3"
+        ></span>
+      </button>
+
+      <button
+        class="plan"
+        id="plan-4"
+        onclick="selectPlan(4)"
+      >
+        Paiement 4x
+        <span
+          class="plan-small"
+          id="amount-4"
+        ></span>
+      </button>
+
+    </div>
+
+    <button
+      class="pay"
+      id="pay-button"
+      onclick="pay()"
+      disabled
+    >
+      Payer par carte
+    </button>
+
+    <div
+      class="message"
+      id="payment-message"
+    ></div>
+
+  </div>
 
 </div>
 
-</main>
+<!-- ========================================================
+     NAVIGATION
+     ======================================================== -->
+
+<div class="bottom-nav">
+
+  <button
+    class="nav-item active"
+    onclick="goHome()"
+  >
+    <span class="nav-icon">🏠</span>
+    Accueil
+  </button>
+
+  <button
+    class="nav-item"
+    onclick="focusCategories()"
+  >
+    <span class="nav-icon">▦</span>
+    Catégories
+  </button>
+
+  <button
+    class="nav-item"
+    onclick="openCart()"
+  >
+    <span class="nav-icon">🛒</span>
+    Panier
+    <span id="bottom-count">0</span>
+  </button>
+
+  <button
+    class="nav-item"
+    onclick="showAccount()"
+  >
+    <span class="nav-icon">👤</span>
+    Compte
+  </button>
+
+</div>
 
 <script>
 
@@ -544,98 +1005,452 @@ Payer par carte
 // ============================================================
 
 const products = [
+
   {
     id: 1,
-    name: "T-shirt Koala",
-    price: 20,
-    emoji: "👕"
+    name: "T-shirt Koala Premium",
+    category: "Mode",
+    price: 19.99,
+    oldPrice: 29.99,
+    emoji: "👕",
+    rating: "★★★★★",
+    sold: "1,2 k+ vendus",
+    description:
+      "T-shirt confortable au style Koala Store. Coupe moderne et tissu doux."
   },
+
   {
     id: 2,
-    name: "Sweat Koala",
-    price: 45,
-    emoji: "🧥"
+    name: "Sweat Koala Urban",
+    category: "Mode",
+    price: 39.99,
+    oldPrice: 59.99,
+    emoji: "🧥",
+    rating: "★★★★★",
+    sold: "860+ vendus",
+    description:
+      "Sweat confortable pour tous les jours avec finition premium."
   },
+
   {
     id: 3,
     name: "Casquette Koala",
-    price: 18,
-    emoji: "🧢"
+    category: "Accessoires",
+    price: 14.99,
+    oldPrice: 22.99,
+    emoji: "🧢",
+    rating: "★★★★☆",
+    sold: "740+ vendus",
+    description:
+      "Casquette légère avec réglage arrière."
   },
+
   {
     id: 4,
-    name: "Sac Koala",
-    price: 30,
-    emoji: "👜"
+    name: "Sac Koala City",
+    category: "Accessoires",
+    price: 27.99,
+    oldPrice: 39.99,
+    emoji: "👜",
+    rating: "★★★★★",
+    sold: "2 k+ vendus",
+    description:
+      "Sac pratique pour la ville et les déplacements quotidiens."
+  },
+
+  {
+    id: 5,
+    name: "Écouteurs sans fil",
+    category: "Tech",
+    price: 24.99,
+    oldPrice: 39.99,
+    emoji: "🎧",
+    rating: "★★★★☆",
+    sold: "3,1 k+ vendus",
+    description:
+      "Écouteurs Bluetooth compacts avec boîtier de recharge."
+  },
+
+  {
+    id: 6,
+    name: "Montre connectée",
+    category: "Tech",
+    price: 34.99,
+    oldPrice: 54.99,
+    emoji: "⌚",
+    rating: "★★★★★",
+    sold: "950+ vendus",
+    description:
+      "Montre connectée avec suivi d'activité et notifications."
+  },
+
+  {
+    id: 7,
+    name: "Lampe design",
+    category: "Maison",
+    price: 18.99,
+    oldPrice: 28.99,
+    emoji: "💡",
+    rating: "★★★★☆",
+    sold: "520+ vendus",
+    description:
+      "Lampe décorative compacte pour chambre ou salon."
+  },
+
+  {
+    id: 8,
+    name: "Coussin Koala",
+    category: "Maison",
+    price: 16.99,
+    oldPrice: 25.99,
+    emoji: "🛋️",
+    rating: "★★★★★",
+    sold: "1,4 k+ vendus",
+    description:
+      "Coussin doux et confortable pour votre intérieur."
+  },
+
+  {
+    id: 9,
+    name: "Lunettes tendance",
+    category: "Accessoires",
+    price: 12.99,
+    oldPrice: 19.99,
+    emoji: "🕶️",
+    rating: "★★★★☆",
+    sold: "680+ vendus",
+    description:
+      "Lunettes au design moderne pour compléter votre tenue."
+  },
+
+  {
+    id: 10,
+    name: "Baskets Urban",
+    category: "Mode",
+    price: 42.99,
+    oldPrice: 69.99,
+    emoji: "👟",
+    rating: "★★★★★",
+    sold: "1,1 k+ vendus",
+    description:
+      "Baskets légères et confortables pour un usage quotidien."
+  },
+
+  {
+    id: 11,
+    name: "Enceinte Bluetooth",
+    category: "Tech",
+    price: 29.99,
+    oldPrice: 44.99,
+    emoji: "🔊",
+    rating: "★★★★☆",
+    sold: "790+ vendus",
+    description:
+      "Enceinte portable Bluetooth avec batterie rechargeable."
+  },
+
+  {
+    id: 12,
+    name: "Mug Koala",
+    category: "Maison",
+    price: 9.99,
+    oldPrice: 14.99,
+    emoji: "☕",
+    rating: "★★★★★",
+    sold: "2,3 k+ vendus",
+    description:
+      "Mug Koala Store pour boissons chaudes et froides."
   }
+
 ];
 
+// ============================================================
+// ETAT
+// ============================================================
+
 let cart = {};
+
+let category = "Tous";
 
 let payment = "card";
 
 let plan = 3;
 
+let selectedProductId = null;
+
 // ============================================================
-// FORMAT EURO
+// EURO
 // ============================================================
 
-function eur(number) {
+function eur(value) {
 
-  return Number(number)
-    .toLocaleString(
-      "fr-FR",
-      {
-        minimumFractionDigits: 2,
-        maximumFractionDigits: 2
-      }
-    ) + " €";
+  return Number(value).toLocaleString(
+    "fr-FR",
+    {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2
+    }
+  ) + " €";
 }
 
 // ============================================================
-// AFFICHER PRODUITS
+// PRODUITS FILTRES
+// ============================================================
+
+function filteredProducts() {
+
+  const query =
+    document
+      .getElementById("search")
+      .value
+      .trim()
+      .toLowerCase();
+
+  return products.filter(function(product) {
+
+    const categoryOk =
+      category === "Tous" ||
+      product.category === category;
+
+    const searchOk =
+      !query ||
+      product.name
+        .toLowerCase()
+        .includes(query) ||
+      product.category
+        .toLowerCase()
+        .includes(query);
+
+    return categoryOk && searchOk;
+  });
+}
+
+// ============================================================
+// AFFICHAGE PRODUITS
 // ============================================================
 
 function renderProducts() {
 
+  const list =
+    filteredProducts();
+
+  const html =
+    list.map(function(product) {
+
+      const discount =
+        Math.round(
+          (
+            1 -
+            product.price /
+            product.oldPrice
+          ) *
+          100
+        );
+
+      return (
+        '<div class="product">' +
+
+          '<div class="product-image" ' +
+            'onclick="openProduct(' +
+            product.id +
+            ')">' +
+            product.emoji +
+          '</div>' +
+
+          '<div class="product-info">' +
+
+            '<div class="product-name">' +
+              product.name +
+            '</div>' +
+
+            '<div class="rating">' +
+              product.rating +
+              ' <span class="sold">' +
+              product.sold +
+              '</span>' +
+            '</div>' +
+
+            '<div>' +
+              '<span class="old-price">' +
+                eur(product.oldPrice) +
+              '</span> ' +
+              '<span class="discount">-' +
+                discount +
+                '%</span>' +
+            '</div>' +
+
+            '<div class="product-price">' +
+              eur(product.price) +
+            '</div>' +
+
+            '<button class="add" ' +
+              'onclick="addProduct(' +
+              product.id +
+              ')">' +
+              'Ajouter au panier' +
+            '</button>' +
+
+          '</div>' +
+
+        '</div>'
+      );
+
+    }).join("");
+
   document
     .getElementById("products")
     .innerHTML =
-      products
-        .map(function(p) {
-
-          return (
-            '<div class="card">' +
-
-              '<div class="product-img">' +
-                p.emoji +
-              '</div>' +
-
-              '<h3>' +
-                p.name +
-              '</h3>' +
-
-              '<div class="price">' +
-                eur(p.price) +
-              '</div>' +
-
-              '<button ' +
-                'class="btn" ' +
-                'onclick="addProduct(' +
-                p.id +
-                ')">' +
-                'Ajouter au panier' +
-              '</button>' +
-
-            '</div>'
-          );
-
-        })
-        .join("");
+      html ||
+      '<div style="padding:20px">Aucun produit trouvé.</div>';
 }
 
 // ============================================================
-// AJOUTER PRODUIT
+// RECHERCHE
+// ============================================================
+
+function searchProducts() {
+  renderProducts();
+}
+
+// ============================================================
+// CATEGORIE
+// ============================================================
+
+function setCategory(value, button) {
+
+  category = value;
+
+  document
+    .querySelectorAll(".category")
+    .forEach(function(item) {
+      item.classList.remove("active");
+    });
+
+  button.classList.add("active");
+
+  renderProducts();
+}
+
+// ============================================================
+// FICHE PRODUIT
+// ============================================================
+
+function openProduct(id) {
+
+  selectedProductId = id;
+
+  const product =
+    products.find(function(item) {
+      return item.id === id;
+    });
+
+  if (!product) {
+    return;
+  }
+
+  document
+    .getElementById("product-detail")
+    .innerHTML =
+
+      '<div class="detail-image">' +
+        product.emoji +
+      '</div>' +
+
+      '<div class="detail-name">' +
+        product.name +
+      '</div>' +
+
+      '<div class="rating">' +
+        product.rating +
+        ' ' +
+        product.sold +
+      '</div>' +
+
+      '<div class="detail-price">' +
+        eur(product.price) +
+      '</div>' +
+
+      '<div class="detail-description">' +
+        product.description +
+      '</div>' +
+
+      '<div class="option-title">' +
+        'Couleur' +
+      '</div>' +
+
+      '<div class="options">' +
+
+        '<button class="option selected">' +
+          'Noir' +
+        '</button>' +
+
+        '<button class="option">' +
+          'Blanc' +
+        '</button>' +
+
+        '<button class="option">' +
+          'Beige' +
+        '</button>' +
+
+      '</div>' +
+
+      '<div class="option-title">' +
+        'Taille' +
+      '</div>' +
+
+      '<div class="options">' +
+
+        '<button class="option">' +
+          'S' +
+        '</button>' +
+
+        '<button class="option selected">' +
+          'M' +
+        '</button>' +
+
+        '<button class="option">' +
+          'L' +
+        '</button>' +
+
+        '<button class="option">' +
+          'XL' +
+        '</button>' +
+
+      '</div>' +
+
+      '<button class="pay" ' +
+        'onclick="addProductAndClose(' +
+        product.id +
+        ')">' +
+        'Ajouter au panier · ' +
+        eur(product.price) +
+      '</button>';
+
+  document
+    .getElementById("product-overlay")
+    .classList
+    .add("show");
+}
+
+function closeProduct() {
+
+  document
+    .getElementById("product-overlay")
+    .classList
+    .remove("show");
+}
+
+function addProductAndClose(id) {
+
+  addProduct(id);
+
+  closeProduct();
+
+  openCart();
+}
+
+// ============================================================
+// PANIER
 // ============================================================
 
 function addProduct(id) {
@@ -643,152 +1458,174 @@ function addProduct(id) {
   cart[id] =
     (cart[id] || 0) + 1;
 
+  updateCartCounters();
+
   renderCart();
 }
-
-// ============================================================
-// RETIRER PRODUIT
-// ============================================================
 
 function removeProduct(id) {
 
-  if (cart[id] > 1) {
-
-    cart[id]--;
-
-  } else {
-
-    delete cart[id];
-
+  if (!cart[id]) {
+    return;
   }
+
+  if (cart[id] > 1) {
+    cart[id]--;
+  } else {
+    delete cart[id];
+  }
+
+  updateCartCounters();
 
   renderCart();
 }
 
-// ============================================================
-// TOTAL
-// ============================================================
+function getCount() {
+
+  return Object
+    .values(cart)
+    .reduce(function(total, quantity) {
+      return total + quantity;
+    }, 0);
+}
 
 function getTotal() {
 
   return products.reduce(
-    function(sum, product) {
+    function(total, product) {
 
-      return (
-        sum +
-        (cart[product.id] || 0) *
-        product.price
-      );
+      return total +
+        (
+          cart[product.id] || 0
+        ) *
+        product.price;
 
     },
     0
   );
 }
 
-// ============================================================
-// NOMBRE ARTICLES
-// ============================================================
+function updateCartCounters() {
 
-function getCount() {
+  const count =
+    getCount();
 
-  return Object
-    .values(cart)
-    .reduce(
-      function(a, b) {
-        return a + b;
-      },
-      0
-    );
+  document
+    .getElementById("top-count")
+    .textContent =
+      count;
+
+  document
+    .getElementById("bottom-count")
+    .textContent =
+      count;
 }
-
-// ============================================================
-// PANIER
-// ============================================================
 
 function renderCart() {
 
-  const rows =
-    products
-      .filter(function(product) {
+  const selected =
+    products.filter(function(product) {
+      return cart[product.id];
+    });
 
-        return cart[product.id];
+  const html =
+    selected.map(function(product) {
 
-      })
-      .map(function(product) {
+      return (
 
-        return (
-          '<div class="line">' +
+        '<div class="cart-row">' +
 
-            '<div>' +
+          '<div class="cart-icon">' +
+            product.emoji +
+          '</div>' +
 
-              '<b>' +
-                product.name +
-              '</b>' +
+          '<div>' +
 
-              '<div class="small">' +
-                eur(product.price) +
-                ' × ' +
-                cart[product.id] +
-              '</div>' +
-
+            '<div class="cart-name">' +
+              product.name +
             '</div>' +
 
-            '<div class="qty">' +
-
-              '<button ' +
-                'class="mini" ' +
-                'onclick="removeProduct(' +
-                product.id +
-                ')">' +
-                '−' +
-              '</button>' +
-
-              '<b>' +
-                cart[product.id] +
-              '</b>' +
-
-              '<button ' +
-                'class="mini" ' +
-                'onclick="addProduct(' +
-                product.id +
-                ')">' +
-                '+' +
-              '</button>' +
-
+            '<div class="cart-price">' +
+              eur(product.price) +
             '</div>' +
 
-          '</div>'
-        );
+          '</div>' +
 
-      })
-      .join("");
+          '<div class="quantity">' +
+
+            '<button onclick="removeProduct(' +
+              product.id +
+              ')">−</button>' +
+
+            '<b>' +
+              cart[product.id] +
+            '</b>' +
+
+            '<button onclick="addProduct(' +
+              product.id +
+              ')">+</button>' +
+
+          '</div>' +
+
+        '</div>'
+      );
+
+    }).join("");
 
   document
-    .getElementById("cart")
+    .getElementById("cart-content")
     .innerHTML =
-      rows ||
-      '<div class="small">Votre panier est vide.</div>';
+      html ||
+      '<div style="padding:25px 0;color:#777">' +
+        'Votre panier est vide.' +
+      '</div>';
+
+  const total =
+    getTotal();
 
   document
-    .getElementById("total")
+    .getElementById("cart-total")
     .textContent =
-      eur(getTotal());
+      eur(total);
 
   document
-    .getElementById("count")
+    .getElementById("amount-3")
     .textContent =
-      getCount();
+      eur(total / 3) +
+      " par paiement";
 
   document
-    .getElementById("pay")
+    .getElementById("amount-4")
+    .textContent =
+      eur(total / 4) +
+      " par paiement";
+
+  document
+    .getElementById("pay-button")
     .disabled =
-      getTotal() <= 0;
+      total <= 0;
+}
 
-  updatePlans();
+function openCart() {
+
+  renderCart();
+
+  document
+    .getElementById("cart-overlay")
+    .classList
+    .add("show");
+}
+
+function closeCart() {
+
+  document
+    .getElementById("cart-overlay")
+    .classList
+    .remove("show");
 }
 
 // ============================================================
-// MODE DE PAIEMENT
+// PAIEMENT
 // ============================================================
 
 function selectPayment(value) {
@@ -796,7 +1633,7 @@ function selectPayment(value) {
   payment = value;
 
   document
-    .getElementById("m-card")
+    .getElementById("payment-card")
     .classList
     .toggle(
       "selected",
@@ -804,7 +1641,7 @@ function selectPayment(value) {
     );
 
   document
-    .getElementById("m-crypto")
+    .getElementById("payment-crypto")
     .classList
     .toggle(
       "selected",
@@ -819,73 +1656,43 @@ function selectPayment(value) {
       value === "crypto"
     );
 
-  document
-    .getElementById("pay")
-    .className =
-      "btn" +
-      (
-        value === "crypto"
-          ? " crypto"
-          : ""
-      );
+  const button =
+    document.getElementById("pay-button");
 
-  document
-    .getElementById("pay")
-    .textContent =
-      value === "crypto"
-        ? "Payer avec Koala Crypto"
-        : "Payer par carte";
+  button.textContent =
+    value === "crypto"
+      ? "Continuer vers Koala Crypto"
+      : "Payer par carte";
+
+  button.className =
+    value === "crypto"
+      ? "pay crypto"
+      : "pay";
 }
 
-// ============================================================
-// CHOIX 3X / 4X
-// ============================================================
+function selectPlan(value) {
 
-function selectPlan(number) {
-
-  plan = number;
+  plan = value;
 
   document
-    .getElementById("p-3")
+    .getElementById("plan-3")
     .classList
     .toggle(
       "selected",
-      number === 3
+      value === 3
     );
 
   document
-    .getElementById("p-4")
+    .getElementById("plan-4")
     .classList
     .toggle(
       "selected",
-      number === 4
+      value === 4
     );
 }
 
 // ============================================================
-// CALCUL 3X / 4X
-// ============================================================
-
-function updatePlans() {
-
-  const total =
-    getTotal();
-
-  document
-    .getElementById("p3")
-    .textContent =
-      eur(total / 3) +
-      " / paiement";
-
-  document
-    .getElementById("p4")
-    .textContent =
-      eur(total / 4) +
-      " / paiement";
-}
-
-// ============================================================
-// PAYER
+// ENVOI PAIEMENT
 // ============================================================
 
 async function pay() {
@@ -893,15 +1700,19 @@ async function pay() {
   const total =
     getTotal();
 
-  if (!total) {
+  if (total <= 0) {
     return;
   }
 
   const button =
-    document.getElementById("pay");
+    document.getElementById(
+      "pay-button"
+    );
 
   const message =
-    document.getElementById("msg");
+    document.getElementById(
+      "payment-message"
+    );
 
   button.disabled = true;
 
@@ -910,17 +1721,10 @@ async function pay() {
 
   try {
 
-    const endpoint =
-      payment === "card"
-        ? "/api/stripe/checkout"
-        : "/api/koala/checkout";
-
     const items =
       products
         .filter(function(product) {
-
           return cart[product.id];
-
         })
         .map(function(product) {
 
@@ -933,6 +1737,11 @@ async function pay() {
           };
 
         });
+
+    const endpoint =
+      payment === "crypto"
+        ? "/api/koala/checkout"
+        : "/api/stripe/checkout";
 
     const response =
       await fetch(
@@ -961,21 +1770,19 @@ async function pay() {
 
       throw new Error(
         data.error ||
-        "Erreur paiement"
+        "Impossible de préparer le paiement."
       );
     }
 
-    if (data.url) {
-
-      location.href =
-        data.url;
-
-    } else {
+    if (!data.url) {
 
       throw new Error(
-        "Lien de paiement manquant"
+        "Lien de paiement manquant."
       );
     }
+
+    window.location.href =
+      data.url;
 
   } catch (error) {
 
@@ -988,12 +1795,58 @@ async function pay() {
 }
 
 // ============================================================
-// INITIALISATION
+// NAVIGATION
+// ============================================================
+
+function goHome() {
+
+  closeCart();
+  closeProduct();
+
+  window.scrollTo({
+    top: 0,
+    behavior: "smooth"
+  });
+}
+
+function focusCategories() {
+
+  closeCart();
+
+  document
+    .getElementById("categories")
+    .scrollIntoView({
+      behavior: "smooth"
+    });
+}
+
+function showAccount() {
+
+  alert(
+    "L'espace client Koala Store sera disponible ici."
+  );
+}
+
+function overlayClose(event, id) {
+
+  if (event.target.id === id) {
+
+    document
+      .getElementById(id)
+      .classList
+      .remove("show");
+  }
+}
+
+// ============================================================
+// DEMARRAGE FRONT
 // ============================================================
 
 renderProducts();
 
 renderCart();
+
+updateCartCounters();
 
 </script>
 
@@ -1003,13 +1856,10 @@ renderCart();
 }
 
 // ============================================================
-// STRIPE CHECKOUT
+// STRIPE
 // ============================================================
 
-async function createStripeCheckout(
-  req,
-  res
-) {
+async function createStripeCheckout(req, res) {
 
   if (!stripe) {
 
@@ -1028,8 +1878,7 @@ async function createStripeCheckout(
 
   const amount =
     Math.round(
-      Number(body.amountEur) *
-      100
+      Number(body.amountEur) * 100
     );
 
   if (
@@ -1048,42 +1897,39 @@ async function createStripeCheckout(
   }
 
   const session =
-    await stripe
-      .checkout
-      .sessions
-      .create({
+    await stripe.checkout.sessions.create({
 
-        mode: "payment",
+      mode: "payment",
 
-        payment_method_types: [
-          "card"
-        ],
+      payment_method_types: [
+        "card"
+      ],
 
-        line_items: [
-          {
-            price_data: {
+      line_items: [
+        {
+          price_data: {
 
-              currency: "eur",
+            currency: "eur",
 
-              product_data: {
-                name:
-                  "Commande Koala Store"
-              },
-
-              unit_amount:
-                amount
+            product_data: {
+              name:
+                "Commande Koala Store"
             },
 
-            quantity: 1
-          }
-        ],
+            unit_amount:
+              amount
+          },
 
-        success_url:
-          `${KOALA_STORE_URL}/?stripe=success&session_id={CHECKOUT_SESSION_ID}`,
+          quantity: 1
+        }
+      ],
 
-        cancel_url:
-          `${KOALA_STORE_URL}/?stripe=cancel`
-      });
+      success_url:
+        `${KOALA_STORE_URL}/?stripe=success&session_id={CHECKOUT_SESSION_ID}`,
+
+      cancel_url:
+        `${KOALA_STORE_URL}/?stripe=cancel`
+    });
 
   return json(
     res,
@@ -1095,13 +1941,10 @@ async function createStripeCheckout(
 }
 
 // ============================================================
-// KOALA CRYPTO CHECKOUT
+// KOALA CRYPTO
 // ============================================================
 
-async function createKoalaCheckout(
-  req,
-  res
-) {
+async function createKoalaCheckout(req, res) {
 
   const body =
     await readJson(req);
@@ -1111,8 +1954,7 @@ async function createKoalaCheckout(
 
   const installmentsCount =
     Number(
-      body.installmentsCount ||
-      3
+      body.installmentsCount || 3
     );
 
   if (
@@ -1141,13 +1983,18 @@ async function createKoalaCheckout(
       400,
       {
         error:
-          "Choisissez 3x ou 4x."
+          "Choisissez le paiement 3x ou 4x."
       }
     );
   }
 
   // ==========================================================
-  // BTC actuellement opérationnel
+  // KOALA STORE -> KOALA CRYPTO
+  // BTC est actuellement utilisé pour le paiement opérationnel.
+  //
+  // IMPORTANT :
+  // returnUrl indique à Koala Crypto où revenir
+  // après confirmation du paiement.
   // ==========================================================
 
   const payload = {
@@ -1167,6 +2014,11 @@ async function createKoalaCheckout(
       `${KOALA_STORE_URL}/store/success`
   };
 
+  console.log(
+    "Création commande Koala Crypto:",
+    payload
+  );
+
   const response =
     await fetch(
       `${KOALA_CRYPTO_URL}/api/orders`,
@@ -1179,20 +2031,23 @@ async function createKoalaCheckout(
         },
 
         body:
-          JSON.stringify(
-            payload
-          )
+          JSON.stringify(payload)
       }
     );
 
   const data =
     await response
       .json()
-      .catch(
-        () => ({})
-      );
+      .catch(function() {
+        return {};
+      });
 
   if (!response.ok) {
+
+    console.error(
+      "Erreur Koala Crypto:",
+      data
+    );
 
     return json(
       res,
@@ -1206,27 +2061,43 @@ async function createKoalaCheckout(
     );
   }
 
-  const token =
+  // ==========================================================
+  // RECUPERATION DU TOKEN
+  // ==========================================================
+
+  let token =
     data.paymentToken ||
     data.payment_token ||
-    (
-      data.installments &&
-      data.installments[0] &&
-      (
-        data.installments[0]
-          .paymentToken ||
-        data.installments[0]
-          .payment_token
-      )
-    );
+    null;
 
-  const direct =
+  if (
+    !token &&
+    data.installments &&
+    data.installments.length
+  ) {
+
+    token =
+      data.installments[0].paymentToken ||
+      data.installments[0].payment_token ||
+      null;
+  }
+
+  // ==========================================================
+  // URL DIRECTE EVENTUELLEMENT FOURNIE PAR KOALA CRYPTO
+  // ==========================================================
+
+  const directUrl =
     data.paymentUrl ||
     data.payment_url ||
-    data.url;
+    data.url ||
+    null;
+
+  // ==========================================================
+  // REDIRECTION KOALA STORE -> KOALA CRYPTO
+  // ==========================================================
 
   const target =
-    direct ||
+    directUrl ||
     (
       token
         ? `${KOALA_CRYPTO_URL}/pay/${encodeURIComponent(token)}`
@@ -1234,6 +2105,11 @@ async function createKoalaCheckout(
     );
 
   if (!target) {
+
+    console.error(
+      "Réponse Koala Crypto sans URL:",
+      data
+    );
 
     return json(
       res,
@@ -1255,12 +2131,12 @@ async function createKoalaCheckout(
 }
 
 // ============================================================
-// SERVEUR HTTP
+// SERVEUR
 // ============================================================
 
 const server =
   http.createServer(
-    async (req, res) => {
+    async function(req, res) {
 
       try {
 
@@ -1271,16 +2147,30 @@ const server =
           );
 
         // ====================================================
-        // PAGE PRINCIPALE
+        // ACCUEIL
         // ====================================================
 
         if (
           req.method === "GET" &&
-          (
-            url.pathname === "/" ||
-            url.pathname ===
-              "/store/success"
-          )
+          url.pathname === "/"
+        ) {
+
+          return send(
+            res,
+            200,
+            "text/html; charset=utf-8",
+            pageHtml(url)
+          );
+        }
+
+        // ====================================================
+        // RETOUR DE KOALA CRYPTO
+        // ====================================================
+
+        if (
+          req.method === "GET" &&
+          url.pathname ===
+            "/store/success"
         ) {
 
           return send(
@@ -1313,8 +2203,11 @@ const server =
               stripe:
                 !!stripe,
 
-              koala_crypto:
-                KOALA_CRYPTO_URL
+              koalaCrypto:
+                KOALA_CRYPTO_URL,
+
+              store:
+                KOALA_STORE_URL
             }
           );
         }
@@ -1385,23 +2278,31 @@ const server =
   );
 
 // ============================================================
-// DÉMARRAGE
+// DEMARRAGE
 // ============================================================
 
 server.listen(
   PORT,
-  () => {
+  function() {
 
     console.log(
-      `Koala Store démarré sur le port ${PORT}`
+      "Koala Store démarré sur le port " +
+      PORT
     );
 
     console.log(
-      `Stripe configuré : ${stripe ? "oui" : "non"}`
+      "Stripe configuré : " +
+      (stripe ? "oui" : "non")
     );
 
     console.log(
-      `Koala Crypto : ${KOALA_CRYPTO_URL}`
+      "Koala Crypto : " +
+      KOALA_CRYPTO_URL
+    );
+
+    console.log(
+      "Koala Store : " +
+      KOALA_STORE_URL
     );
   }
 );
