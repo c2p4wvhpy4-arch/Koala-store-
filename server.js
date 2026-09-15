@@ -139,8 +139,6 @@ button {
   cursor: pointer;
 }
 
-/* HEADER */
-
 .top {
   position: sticky;
   top: 0;
@@ -196,8 +194,6 @@ button {
   padding: 12px 17px;
 }
 
-/* MESSAGES */
-
 .notice {
   margin: 12px;
   padding: 14px;
@@ -213,8 +209,6 @@ button {
   border-color: #fdba74;
   color: #9a3412;
 }
-
-/* PROMO */
 
 .promo {
   margin: 12px;
@@ -248,8 +242,6 @@ button {
   font-weight: 900;
 }
 
-/* CATEGORIES */
-
 .categories {
   display: flex;
   gap: 9px;
@@ -277,8 +269,6 @@ button {
   font-size: 20px;
   font-weight: 950;
 }
-
-/* PRODUITS */
 
 .products {
   display: grid;
@@ -359,8 +349,6 @@ button {
   font-weight: 850;
 }
 
-/* OVERLAY */
-
 .overlay {
   display: none;
   position: fixed;
@@ -401,8 +389,6 @@ button {
   font-size: 20px;
   background: #eee;
 }
-
-/* PANIER */
 
 .cart-row {
   display: grid;
@@ -454,8 +440,6 @@ button {
   font-weight: 950;
   padding: 18px 0;
 }
-
-/* PAIEMENT */
 
 .payment-title {
   font-size: 17px;
@@ -539,8 +523,6 @@ button {
   color: #555;
 }
 
-/* NAVIGATION */
-
 .bottom-nav {
   position: fixed;
   left: 0;
@@ -567,15 +549,13 @@ button {
 }
 
 @media (min-width:800px) {
-
   body {
     max-width: 1100px;
     margin: auto;
   }
 
   .products {
-    grid-template-columns:
-      repeat(4,1fr);
+    grid-template-columns: repeat(4,1fr);
   }
 }
 
@@ -653,10 +633,7 @@ Paiement CB ou Koala Crypto
 
 </div>
 
-<div
-  class="categories"
-  id="categories"
->
+<div class="categories" id="categories">
 
 <button
   class="category active"
@@ -699,17 +676,9 @@ Tout
 Meilleurs choix
 </div>
 
-<div
-  class="products"
-  id="products"
-></div>
+<div class="products" id="products"></div>
 
-<!-- PANIER -->
-
-<div
-  class="overlay"
-  id="cart-overlay"
->
+<div class="overlay" id="cart-overlay">
 
 <div class="sheet">
 
@@ -730,9 +699,7 @@ Votre panier
 
 <div class="total">
 
-<span>
-Total
-</span>
+<span>Total</span>
 
 <span id="cart-total">
 0,00 €
@@ -766,10 +733,7 @@ Koala Crypto
 
 </div>
 
-<div
-  class="plans"
-  id="plans"
->
+<div class="plans" id="plans">
 
 <button
   class="plan selected"
@@ -818,8 +782,6 @@ Payer par carte
 </div>
 
 </div>
-
-<!-- NAVIGATION -->
 
 <div class="bottom-nav">
 
@@ -1006,11 +968,8 @@ const products = [
 ];
 
 let cart = {};
-
 let category = "Tous";
-
 let payment = "card";
-
 let plan = 3;
 
 // ============================================================
@@ -1073,7 +1032,6 @@ function renderProducts() {
           );
 
         return (
-
           '<div class="product">' +
 
             '<div class="product-image">' +
@@ -1219,7 +1177,6 @@ function renderCart() {
     selected.map(function(product) {
 
       return (
-
         '<div class="cart-row">' +
 
           '<div class="cart-icon">' +
@@ -1491,12 +1448,7 @@ async function pay() {
   }
 }
 
-// ============================================================
-// INITIALISATION
-// ============================================================
-
 renderProducts();
-
 updateCart();
 
 </script>
@@ -1654,9 +1606,6 @@ async function createKoalaCheckout(req,res) {
     installmentsCount:
       installmentsCount,
 
-    // Koala Crypto doit utiliser cette URL
-    // une fois le paiement terminé.
-
     returnUrl:
       KOALA_STORE_URL +
       "/store/success"
@@ -1667,10 +1616,15 @@ async function createKoalaCheckout(req,res) {
     JSON.stringify(payload)
   );
 
+  // ==========================================================
+  // IMPORTANT :
+  // NOUVELLE API KOALA CRYPTO POUR KOALA STORE
+  // ==========================================================
+
   const response =
     await fetch(
       KOALA_CRYPTO_URL +
-      "/api/orders",
+      "/api/store/orders",
       {
         method:"POST",
 
@@ -1711,8 +1665,7 @@ async function createKoalaCheckout(req,res) {
   }
 
   // ==========================================================
-  // CHERCHER LE PAYMENT TOKEN
-  // Plusieurs structures sont acceptées.
+  // PAYMENT TOKEN
   // ==========================================================
 
   let token =
@@ -1721,9 +1674,6 @@ async function createKoalaCheckout(req,res) {
     data.firstPaymentToken ||
     data.first_payment_token ||
     null;
-
-  // Réponse du type :
-  // { order: { paymentToken: "..." } }
 
   if (
     !token &&
@@ -1737,9 +1687,6 @@ async function createKoalaCheckout(req,res) {
       data.order.first_payment_token ||
       null;
   }
-
-  // Réponse du type :
-  // { installments: [...] }
 
   if (
     !token &&
@@ -1756,9 +1703,6 @@ async function createKoalaCheckout(req,res) {
         .payment_token ||
       null;
   }
-
-  // Réponse du type :
-  // { order: { installments: [...] } }
 
   if (
     !token &&
@@ -1782,7 +1726,7 @@ async function createKoalaCheckout(req,res) {
   }
 
   // ==========================================================
-  // URL DIRECTE EVENTUELLE
+  // URL DIRECTE
   // ==========================================================
 
   let directUrl =
@@ -1808,9 +1752,7 @@ async function createKoalaCheckout(req,res) {
   }
 
   // ==========================================================
-  // CONSTRUIRE LA PAGE KOALA CRYPTO
-  //
-  // https://koala6.onrender.com/pay/TOKEN
+  // PAGE KOALA CRYPTO
   // ==========================================================
 
   const target =
@@ -1841,14 +1783,14 @@ async function createKoalaCheckout(req,res) {
   }
 
   console.log(
+    "Token Koala Crypto:",
+    token || "URL directe"
+  );
+
+  console.log(
     "Redirection vers:",
     target
   );
-
-  // ==========================================================
-  // LE NAVIGATEUR KOALA STORE RECEVRA CETTE URL
-  // ET OUVRIRA LA PAGE DE PAIEMENT KOALA CRYPTO
-  // ==========================================================
 
   return json(
     res,
@@ -1875,8 +1817,6 @@ const server =
             KOALA_STORE_URL
           );
 
-        // ACCUEIL
-
         if (
           req.method === "GET" &&
           url.pathname === "/"
@@ -1889,8 +1829,6 @@ const server =
             pageHtml(url)
           );
         }
-
-        // RETOUR DE KOALA CRYPTO
 
         if (
           req.method === "GET" &&
@@ -1905,8 +1843,6 @@ const server =
             pageHtml(url)
           );
         }
-
-        // HEALTH
 
         if (
           req.method === "GET" &&
@@ -1928,8 +1864,6 @@ const server =
           );
         }
 
-        // STRIPE
-
         if (
           req.method === "POST" &&
           url.pathname ===
@@ -1942,8 +1876,6 @@ const server =
           );
         }
 
-        // KOALA CRYPTO
-
         if (
           req.method === "POST" &&
           url.pathname ===
@@ -1955,8 +1887,6 @@ const server =
             res
           );
         }
-
-        // 404
 
         return json(
           res,
@@ -2012,6 +1942,10 @@ server.listen(
     console.log(
       "Koala Store : " +
       KOALA_STORE_URL
+    );
+
+    console.log(
+      "API Koala Store -> Crypto : /api/store/orders"
     );
   }
 );
