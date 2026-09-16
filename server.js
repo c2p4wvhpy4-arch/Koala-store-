@@ -10,7 +10,7 @@ const PORT = Number(process.env.PORT || 10000);
 
 const KOALA_CRYPTO_URL = (
   process.env.KOALA_CRYPTO_URL ||
-  "https://koala6.onrender.com"
+  "https://koala-2-trqv.onrender.com"
 ).replace(/\/+$/, "");
 
 const KOALA_STORE_URL = (
