@@ -167,56 +167,108 @@ function merchantRegisterPage(error = "") {
 
 async function merchantDashboardPage(session) {
   let orderCount = 0;
-  let revenue = 0;
+  let collected = 0;
+  let toReceive = 0;
   let orders = [];
 
   if (pool) {
-    const stats = await pool.query(`
+    const result = await pool.query(`
       SELECT
-        COUNT(*)::int AS order_count,
-        COALESCE(SUM(
-          CASE
-            WHEN payment_method = 'crypto' THEN (
-              SELECT COALESCE(SUM(i.amount_eur),0)
-              FROM koala_installments i
-              WHERE i.order_id = CASE
-                WHEN store_orders.external_reference ~ '^[0-9]+$'
-                THEN store_orders.external_reference::integer
-                ELSE NULL
-              END
-              AND (i.paid_at IS NOT NULL OR UPPER(COALESCE(i.status,'')) IN ('PAYE','PAYÉ','PAID','CONFIRMED'))
-            )
-            ELSE COALESCE(paid_amount_eur,0)
+        so.id, so.payment_method, so.amount_eur, so.installments_count,
+        so.status, so.external_reference, so.created_at,
+        CASE
+          WHEN so.payment_method = 'crypto' THEN COALESCE((
+            SELECT SUM(ki.amount_eur)
+            FROM koala_installments ki
+            WHERE ki.order_id = CASE
+              WHEN so.external_reference ~ '^[0-9]+$' THEN so.external_reference::bigint
+              ELSE NULL
+            END
+            AND (ki.paid_at IS NOT NULL OR UPPER(COALESCE(ki.status,'')) IN ('PAYE','PAYÉ','PAID','CONFIRMED'))
+          ),0)
+          ELSE COALESCE(so.paid_amount_eur,0)
+        END::numeric AS collected_eur,
+        CASE WHEN so.payment_method = 'crypto' THEN (
+          SELECT COUNT(*)::int
+          FROM koala_installments ki
+          WHERE ki.order_id = CASE
+            WHEN so.external_reference ~ '^[0-9]+$' THEN so.external_reference::bigint
+            ELSE NULL
           END
-        ),0)::numeric AS revenue
-      FROM store_orders
-      WHERE merchant_id = $1
+          AND (ki.paid_at IS NOT NULL OR UPPER(COALESCE(ki.status,'')) IN ('PAYE','PAYÉ','PAID','CONFIRMED'))
+        ) ELSE NULL END AS paid_installments,
+        CASE WHEN so.payment_method = 'crypto' THEN (
+          SELECT ki.amount_eur
+          FROM koala_installments ki
+          WHERE ki.order_id = CASE
+            WHEN so.external_reference ~ '^[0-9]+$' THEN so.external_reference::bigint
+            ELSE NULL
+          END
+          AND NOT (ki.paid_at IS NOT NULL OR UPPER(COALESCE(ki.status,'')) IN ('PAYE','PAYÉ','PAID','CONFIRMED'))
+          ORDER BY ki.number ASC
+          LIMIT 1
+        ) ELSE NULL END AS next_amount,
+        CASE WHEN so.payment_method = 'crypto' THEN (
+          SELECT ki.due_date
+          FROM koala_installments ki
+          WHERE ki.order_id = CASE
+            WHEN so.external_reference ~ '^[0-9]+$' THEN so.external_reference::bigint
+            ELSE NULL
+          END
+          AND NOT (ki.paid_at IS NOT NULL OR UPPER(COALESCE(ki.status,'')) IN ('PAYE','PAYÉ','PAID','CONFIRMED'))
+          ORDER BY ki.number ASC
+          LIMIT 1
+        ) ELSE NULL END AS next_due_date
+      FROM store_orders so
+      WHERE so.merchant_id = $1
+      ORDER BY so.created_at DESC
+      LIMIT 50
     `, [session.merchant_id]);
 
-    orderCount = Number(stats.rows[0]?.order_count || 0);
-    revenue = Number(stats.rows[0]?.revenue || 0);
-
-    const recent = await pool.query(`
-      SELECT id,payment_method,amount_eur,installments_count,status,external_reference,created_at
-      FROM store_orders
-      WHERE merchant_id = $1
-      ORDER BY created_at DESC
-      LIMIT 20
-    `, [session.merchant_id]);
-
-    orders = recent.rows;
+    orders = result.rows;
+    orderCount = orders.length;
+    collected = orders.reduce((sum,o) => sum + Number(o.collected_eur || 0), 0);
+    toReceive = orders.reduce((sum,o) => sum + Math.max(Number(o.amount_eur || 0) - Number(o.collected_eur || 0), 0), 0);
   }
 
-  const orderRows = orders.length
-    ? orders.map(order => `
-      <div class="order">
-        <div><b>Commande #${order.id}</b><div class="muted">${new Date(order.created_at).toLocaleString("fr-FR")}</div></div>
-        <div><b>${money(order.amount_eur)} €</b><div class="muted">${order.payment_method === "crypto" ? "Koala Crypto" : "Carte bancaire"}${order.installments_count ? " · " + order.installments_count + "x" : ""}</div></div>
-      </div>
-    `).join("")
-    : `<div class="muted">Aucune commande enregistrée pour le moment.</div>`;
+  const orderRows = orders.length ? orders.map(order => {
+    const total = Number(order.amount_eur || 0);
+    const paid = Math.min(total, Number(order.collected_eur || 0));
+    const remaining = Math.max(total - paid, 0);
+    const statusText = paid >= total && total > 0 ? "Payée" : paid > 0 ? "Partiellement payée" : "En attente";
+    const nextDate = order.next_due_date
+      ? new Date(order.next_due_date).toLocaleDateString("fr-FR")
+      : "—";
 
-  return `<!doctype html><html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Tableau de bord marchand</title><style>body{margin:0;background:#f5f5f5;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif;color:#151515}.wrap{max-width:900px;margin:auto;padding:20px}.top{display:flex;justify-content:space-between;align-items:center;gap:12px}.grid{display:grid;grid-template-columns:repeat(2,1fr);gap:12px;margin-top:20px}.card{background:#fff;border-radius:18px;padding:18px;border:1px solid #eee}.value{font-size:26px;font-weight:950;margin-top:8px}.muted{color:#666}.btn{display:inline-block;background:#111;color:#fff;padding:11px 14px;border-radius:11px;text-decoration:none;font-weight:800}.orders{margin-top:14px}.order{display:flex;justify-content:space-between;gap:12px;padding:13px 0;border-bottom:1px solid #eee}.order:last-child{border-bottom:0}@media(max-width:600px){.grid{grid-template-columns:1fr}.top{align-items:flex-start;flex-direction:column}.order{flex-direction:column}}</style></head><body><div class="wrap"><div class="top"><div><h1>🏪 ${session.business_name}</h1><div class="muted">${session.email}</div></div><a class="btn" href="/merchant/logout">Déconnexion</a></div><div class="grid"><div class="card"><b>Commandes</b><div class="value">${orderCount}</div><div class="muted">Commandes enregistrées pour ce marchand.</div></div><div class="card"><b>Encaissé réel</b><div class="value">${money(revenue)} €</div><div class="muted">Uniquement les paiements réellement confirmés.</div></div><div class="card"><b>Paiements CB</b><div class="value">${stripe ? "Stripe actif" : "Stripe non configuré"}</div></div><div class="card"><b>Koala Crypto</b><div class="value">Actif</div><div class="muted">Compte marchand #${session.merchant_id}</div></div></div><div class="card orders"><h2>Dernières commandes</h2>${orderRows}</div><p><a class="btn" href="/">Voir Koala Store</a></p></div></body></html>`;
+    return `
+      <div class="orderCard">
+        <div class="orderHead"><b>Commande #${order.id}</b><span class="badge">${statusText}</span></div>
+        <div class="muted">${new Date(order.created_at).toLocaleString("fr-FR")}</div>
+        <div class="details">
+          <div><span>Total</span><b>${money(total)} €</b></div>
+          <div><span>Encaissé</span><b>${money(paid)} €</b></div>
+          <div><span>Reste à recevoir</span><b>${money(remaining)} €</b></div>
+          <div><span>Paiement</span><b>${order.payment_method === "crypto" ? "Koala Crypto" : "Carte bancaire"}</b></div>
+          ${order.payment_method === "crypto" ? `
+            <div><span>Échéances</span><b>${Number(order.paid_installments || 0)} / ${Number(order.installments_count || 0)} payée(s)</b></div>
+            <div><span>Prochaine échéance</span><b>${order.next_amount != null ? money(order.next_amount) + " €" : "—"}</b></div>
+            <div><span>Date</span><b>${nextDate}</b></div>
+          ` : ""}
+        </div>
+      </div>`;
+  }).join("") : `<div class="muted">Aucune commande enregistrée pour le moment.</div>`;
+
+  return `<!doctype html><html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Tableau de bord marchand</title><style>
+  body{margin:0;background:#f5f5f5;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif;color:#151515}
+  .wrap{max-width:900px;margin:auto;padding:20px}.top{display:flex;justify-content:space-between;align-items:center;gap:12px}
+  .grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-top:20px}.card,.orderCard{background:#fff;border-radius:18px;padding:18px;border:1px solid #eee}
+  .value{font-size:26px;font-weight:950;margin-top:8px}.muted{color:#666}.btn{display:inline-block;background:#111;color:#fff;padding:11px 14px;border-radius:11px;text-decoration:none;font-weight:800}
+  .orders{margin-top:14px}.orderCard{margin-top:12px}.orderHead{display:flex;justify-content:space-between;gap:10px;align-items:center}.badge{background:#f3f4f6;padding:6px 9px;border-radius:999px;font-size:12px;font-weight:900}
+  .details{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-top:14px}.details div{background:#f8fafc;border-radius:11px;padding:10px;display:flex;flex-direction:column;gap:4px}.details span{font-size:12px;color:#666}
+  @media(max-width:600px){.grid{grid-template-columns:1fr}.top{align-items:flex-start;flex-direction:column}.details{grid-template-columns:1fr}}
+  </style></head><body><div class="wrap"><div class="top"><div><h1>🏪 ${session.business_name}</h1><div class="muted">${session.email}</div></div><a class="btn" href="/merchant/logout">Déconnexion</a></div>
+  <div class="grid"><div class="card"><b>Commandes</b><div class="value">${orderCount}</div></div><div class="card"><b>Encaissé</b><div class="value">${money(collected)} €</div><div class="muted">Paiements confirmés.</div></div><div class="card"><b>À recevoir</b><div class="value">${money(toReceive)} €</div><div class="muted">Solde restant.</div></div></div>
+  <div class="card orders"><h2>Détail des commandes</h2>${orderRows}</div><p><a class="btn" href="/">Voir Koala Store</a></p></div></body></html>`;
 }
 
 function readForm(req) {
