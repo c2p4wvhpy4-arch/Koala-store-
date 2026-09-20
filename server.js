@@ -129,6 +129,23 @@ async function initStoreDatabase() {
   `);
 
   await pool.query(`
+    CREATE TABLE IF NOT EXISTS store_payout_requests (
+      id BIGSERIAL PRIMARY KEY,
+      merchant_id BIGINT NOT NULL REFERENCES store_merchants(id) ON DELETE CASCADE,
+      amount_eur NUMERIC(12,2) NOT NULL CHECK (amount_eur > 0),
+      status TEXT NOT NULL DEFAULT 'requested',
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      processed_at TIMESTAMPTZ,
+      payout_reference TEXT
+    )
+  `);
+
+  await pool.query(`
+    CREATE INDEX IF NOT EXISTS store_payout_requests_merchant_idx
+    ON store_payout_requests(merchant_id, created_at DESC)
+  `);
+
+  await pool.query(`
     DELETE FROM store_sessions
     WHERE expires_at <= NOW()
   `);
@@ -165,10 +182,50 @@ function merchantRegisterPage(error = "") {
   return `<!doctype html><html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Créer un compte marchand</title><style>body{margin:0;background:#f5f5f5;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif;color:#151515}.box{max-width:430px;margin:40px auto;padding:20px}.card{background:#fff;border-radius:22px;padding:24px;box-shadow:0 8px 30px rgba(0,0,0,.08)}h1{margin:0 0 8px}.sub{color:#666;margin-bottom:22px}label{display:block;font-weight:800;margin:12px 0 6px}input{width:100%;box-sizing:border-box;padding:13px;border:1px solid #ddd;border-radius:12px;font-size:16px}button,.back{display:block;width:100%;box-sizing:border-box;margin-top:16px;padding:14px;border:0;border-radius:12px;background:#16a34a;color:#fff;font-weight:900;font-size:16px;text-align:center;text-decoration:none}.back{background:#eee;color:#111}.err{background:#fee2e2;color:#991b1b;padding:11px;border-radius:10px;margin-bottom:12px}</style></head><body><div class="box"><div class="card"><h1>🏪 Créer un compte</h1><div class="sub">Inscription marchand Koala Store</div>${error ? `<div class="err">${error}</div>` : ""}<form method="post" action="/merchant/register"><label>Nom du commerce</label><input name="business_name" maxlength="120" required><label>E-mail</label><input type="email" name="email" autocomplete="username" required><label>Mot de passe</label><input type="password" name="password" minlength="8" autocomplete="new-password" required><button type="submit">Créer mon compte marchand</button></form><a class="back" href="/merchant/login">J’ai déjà un compte</a></div></div></body></html>`;
 }
 
+async function merchantCollectedAmount(merchantId) {
+  const result = await pool.query(`
+    SELECT COALESCE(SUM(
+      CASE
+        WHEN so.payment_method = 'crypto' THEN COALESCE((
+          SELECT SUM(ki.amount_eur)
+          FROM koala_installments ki
+          WHERE ki.order_id = CASE
+            WHEN so.external_reference ~ '^[0-9]+$' THEN so.external_reference::bigint
+            ELSE NULL
+          END
+          AND (ki.paid_at IS NOT NULL OR UPPER(COALESCE(ki.status,'')) IN ('PAYE','PAYÉ','PAID','CONFIRMED'))
+        ),0)
+        ELSE COALESCE(so.paid_amount_eur,0)
+      END
+    ),0)::numeric AS collected
+    FROM store_orders so
+    WHERE so.merchant_id = $1
+  `, [merchantId]);
+  return Number(result.rows[0]?.collected || 0);
+}
+
+async function merchantReservedOrPaidPayouts(merchantId) {
+  const result = await pool.query(`
+    SELECT COALESCE(SUM(amount_eur),0)::numeric AS total
+    FROM store_payout_requests
+    WHERE merchant_id = $1
+      AND status IN ('requested','processing','paid')
+  `, [merchantId]);
+  return Number(result.rows[0]?.total || 0);
+}
+
+async function merchantAvailableBalance(merchantId) {
+  const collected = await merchantCollectedAmount(merchantId);
+  const reserved = await merchantReservedOrPaidPayouts(merchantId);
+  return Math.max(collected - reserved, 0);
+}
+
 async function merchantDashboardPage(session) {
   let orderCount = 0;
   let collected = 0;
   let toReceive = 0;
+  let availableBalance = 0;
+  let payoutRequests = [];
   let orders = [];
 
   if (pool) {
@@ -229,7 +286,24 @@ async function merchantDashboardPage(session) {
     orderCount = orders.length;
     collected = orders.reduce((sum,o) => sum + Number(o.collected_eur || 0), 0);
     toReceive = orders.reduce((sum,o) => sum + Math.max(Number(o.amount_eur || 0) - Number(o.collected_eur || 0), 0), 0);
+    availableBalance = await merchantAvailableBalance(session.merchant_id);
+
+    const payouts = await pool.query(`
+      SELECT id,amount_eur,status,created_at,processed_at,payout_reference
+      FROM store_payout_requests
+      WHERE merchant_id = $1
+      ORDER BY created_at DESC
+      LIMIT 20
+    `, [session.merchant_id]);
+    payoutRequests = payouts.rows;
   }
+
+  const payoutRows = payoutRequests.length
+    ? payoutRequests.map(p => {
+        const labels = {requested:"Demandé",processing:"En traitement",paid:"Versé",rejected:"Refusé"};
+        return `<div class="payoutRow"><span>Versement #${p.id} · ${new Date(p.created_at).toLocaleDateString("fr-FR")}</span><b>${money(p.amount_eur)} € · ${labels[p.status] || p.status}</b></div>`;
+      }).join("")
+    : `<div class="muted">Aucune demande de versement.</div>`;
 
   const orderRows = orders.length ? orders.map(order => {
     const total = Number(order.amount_eur || 0);
@@ -264,10 +338,11 @@ async function merchantDashboardPage(session) {
   .grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-top:20px}.card,.orderCard{background:#fff;border-radius:18px;padding:18px;border:1px solid #eee}
   .value{font-size:26px;font-weight:950;margin-top:8px}.muted{color:#666}.btn{display:inline-block;background:#111;color:#fff;padding:11px 14px;border-radius:11px;text-decoration:none;font-weight:800}
   .orders{margin-top:14px}.orderCard{margin-top:12px}.orderHead{display:flex;justify-content:space-between;gap:10px;align-items:center}.badge{background:#f3f4f6;padding:6px 9px;border-radius:999px;font-size:12px;font-weight:900}
-  .details{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-top:14px}.details div{background:#f8fafc;border-radius:11px;padding:10px;display:flex;flex-direction:column;gap:4px}.details span{font-size:12px;color:#666}
+  .details{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-top:14px}.details div{background:#f8fafc;border-radius:11px;padding:10px;display:flex;flex-direction:column;gap:4px}.details span{font-size:12px;color:#666}.payoutBox{margin-top:14px}.payoutForm{display:flex;gap:8px;margin-top:12px}.payoutForm input{flex:1;padding:12px;border:1px solid #ddd;border-radius:10px;font-size:16px}.payoutForm button{border:0;background:#16a34a;color:#fff;border-radius:10px;padding:12px 14px;font-weight:900}.payoutRow{display:flex;justify-content:space-between;gap:10px;padding:11px 0;border-bottom:1px solid #eee}
   @media(max-width:600px){.grid{grid-template-columns:1fr}.top{align-items:flex-start;flex-direction:column}.details{grid-template-columns:1fr}}
   </style></head><body><div class="wrap"><div class="top"><div><h1>🏪 ${session.business_name}</h1><div class="muted">${session.email}</div></div><a class="btn" href="/merchant/logout">Déconnexion</a></div>
-  <div class="grid"><div class="card"><b>Commandes</b><div class="value">${orderCount}</div></div><div class="card"><b>Encaissé</b><div class="value">${money(collected)} €</div><div class="muted">Paiements confirmés.</div></div><div class="card"><b>À recevoir</b><div class="value">${money(toReceive)} €</div><div class="muted">Solde restant.</div></div></div>
+  <div class="grid"><div class="card"><b>Commandes</b><div class="value">${orderCount}</div></div><div class="card"><b>Encaissé</b><div class="value">${money(collected)} €</div><div class="muted">Paiements confirmés.</div></div><div class="card"><b>À recevoir</b><div class="value">${money(toReceive)} €</div><div class="muted">Solde restant.</div></div><div class="card"><b>Solde disponible</b><div class="value">${money(availableBalance)} €</div><div class="muted">Disponible pour une demande de versement.</div></div></div>
+  <div class="card payoutBox"><h2>Demander un versement</h2><div class="muted">Cette étape enregistre la demande. Le virement bancaire Stripe Connect sera branché ensuite.</div><form class="payoutForm" method="post" action="/merchant/payout"><input name="amount" type="number" min="0.01" step="0.01" max="${money(availableBalance)}" placeholder="Montant en €" required><button type="submit">Demander</button></form><h3>Historique</h3>${payoutRows}</div>
   <div class="card orders"><h2>Détail des commandes</h2>${orderRows}</div><p><a class="btn" href="/">Voir Koala Store</a></p></div></body></html>`;
 }
 
@@ -2281,6 +2356,32 @@ const server =
             return res.end();
           }
           return send(res,200,"text/html; charset=utf-8",await merchantDashboardPage(session));
+        }
+
+        if (req.method === "POST" && url.pathname === "/merchant/payout") {
+          const session = await merchantSession(req);
+          if (!session) {
+            res.writeHead(302,{Location:"/merchant/login"});
+            return res.end();
+          }
+          if (!pool) return send(res,503,"text/plain; charset=utf-8","DATABASE_URL non configurée.");
+
+          const form = await readForm(req);
+          const amount = Math.round(Number(form.amount) * 100) / 100;
+          const available = await merchantAvailableBalance(session.merchant_id);
+
+          if (!Number.isFinite(amount) || amount <= 0 || amount > available) {
+            return send(res,400,"text/html; charset=utf-8",
+              `<meta name="viewport" content="width=device-width,initial-scale=1"><div style="font-family:Arial;padding:25px"><h2>Montant de versement invalide</h2><p>Solde disponible : ${money(available)} €</p><a href="/merchant">Retour au tableau de bord</a></div>`);
+          }
+
+          await pool.query(`
+            INSERT INTO store_payout_requests (merchant_id,amount_eur,status)
+            VALUES ($1,$2,'requested')
+          `, [session.merchant_id, amount.toFixed(2)]);
+
+          res.writeHead(302,{Location:"/merchant"});
+          return res.end();
         }
 
         if (req.method === "GET" && url.pathname === "/merchant/logout") {
