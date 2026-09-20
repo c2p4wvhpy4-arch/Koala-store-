@@ -2,6 +2,7 @@ const http = require("http");
 const { URL } = require("url");
 const Stripe = require("stripe");
 const crypto = require("crypto");
+const { Pool } = require("pg");
 
 // ============================================================
 // CONFIGURATION
@@ -28,12 +29,17 @@ const stripe = STRIPE_SECRET_KEY
   : null;
 
 // ============================================================
-// ESPACE MARCHAND - ETAPE 1
+// ESPACE MARCHAND - MULTI-MARCHANDS / POSTGRESQL PARTAGE
 // ============================================================
 
-const MERCHANT_EMAIL = (process.env.MERCHANT_EMAIL || "marchand@koalastore.fr").trim().toLowerCase();
-const MERCHANT_PASSWORD = (process.env.MERCHANT_PASSWORD || "Koala123!").trim();
-const merchantSessions = new Map();
+const DATABASE_URL = String(process.env.DATABASE_URL || "").trim();
+
+const pool = DATABASE_URL
+  ? new Pool({
+      connectionString: DATABASE_URL,
+      ssl: { rejectUnauthorized: false }
+    })
+  : null;
 
 function parseCookies(req) {
   const out = {};
@@ -44,23 +50,102 @@ function parseCookies(req) {
   return out;
 }
 
-function merchantSession(req) {
-  const token = parseCookies(req).koala_merchant_session;
-  return token && merchantSessions.get(token);
+function hashPassword(password, salt = crypto.randomBytes(16).toString("hex")) {
+  const hash = crypto.scryptSync(String(password), salt, 64).toString("hex");
+  return `${salt}:${hash}`;
 }
 
-function merchantLoginPage(error = "") {
-  return `<!doctype html><html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Koala Store - Marchand</title><style>body{margin:0;background:#f5f5f5;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif;color:#151515}.box{max-width:430px;margin:55px auto;padding:20px}.card{background:#fff;border-radius:22px;padding:24px;box-shadow:0 8px 30px rgba(0,0,0,.08)}h1{margin:0 0 8px}.sub{color:#666;margin-bottom:22px}label{display:block;font-weight:800;margin:12px 0 6px}input{width:100%;box-sizing:border-box;padding:13px;border:1px solid #ddd;border-radius:12px;font-size:16px}button,.back{display:block;width:100%;box-sizing:border-box;margin-top:16px;padding:14px;border:0;border-radius:12px;background:#111;color:#fff;font-weight:900;font-size:16px;text-align:center;text-decoration:none}.back{background:#eee;color:#111}.err{background:#fee2e2;color:#991b1b;padding:11px;border-radius:10px;margin-bottom:12px}</style></head><body><div class="box"><div class="card"><h1>🐨 Espace marchand</h1><div class="sub">Connexion Koala Store</div>${error ? `<div class="err">${error}</div>` : ""}<form method="post" action="/merchant/login"><label>E-mail</label><input type="email" name="email" autocomplete="username" required><label>Mot de passe</label><input type="password" name="password" autocomplete="current-password" required><button type="submit">Se connecter</button></form><a class="back" href="/">Retour au magasin</a></div></div></body></html>`;
+function verifyPassword(password, stored) {
+  try {
+    const [salt, expected] = String(stored || "").split(":");
+    if (!salt || !expected) return false;
+    const actual = crypto.scryptSync(String(password), salt, 64);
+    const expectedBuffer = Buffer.from(expected, "hex");
+    return expectedBuffer.length === actual.length &&
+      crypto.timingSafeEqual(expectedBuffer, actual);
+  } catch {
+    return false;
+  }
+}
+
+async function initStoreDatabase() {
+  if (!pool) {
+    console.log("Koala Store PostgreSQL : DATABASE_URL non configurée");
+    return;
+  }
+
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS store_merchants (
+      id BIGSERIAL PRIMARY KEY,
+      business_name TEXT NOT NULL,
+      email TEXT NOT NULL UNIQUE,
+      password_hash TEXT NOT NULL,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `);
+
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS store_sessions (
+      token TEXT PRIMARY KEY,
+      merchant_id BIGINT NOT NULL REFERENCES store_merchants(id) ON DELETE CASCADE,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      expires_at TIMESTAMPTZ NOT NULL
+    )
+  `);
+
+  await pool.query(`
+    CREATE INDEX IF NOT EXISTS store_sessions_merchant_id_idx
+    ON store_sessions(merchant_id)
+  `);
+
+  await pool.query(`
+    DELETE FROM store_sessions
+    WHERE expires_at <= NOW()
+  `);
+
+  console.log("Tables Koala Store : store_merchants / store_sessions OK");
+}
+
+async function merchantSession(req) {
+  if (!pool) return null;
+  const token = parseCookies(req).koala_merchant_session;
+  if (!token) return null;
+
+  const result = await pool.query(`
+    SELECT
+      s.token,
+      m.id AS merchant_id,
+      m.business_name,
+      m.email
+    FROM store_sessions s
+    JOIN store_merchants m ON m.id = s.merchant_id
+    WHERE s.token = $1
+      AND s.expires_at > NOW()
+    LIMIT 1
+  `, [token]);
+
+  return result.rows[0] || null;
+}
+
+function merchantLoginPage(error = "", success = "") {
+  return `<!doctype html><html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Koala Store - Marchand</title><style>body{margin:0;background:#f5f5f5;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif;color:#151515}.box{max-width:430px;margin:45px auto;padding:20px}.card{background:#fff;border-radius:22px;padding:24px;box-shadow:0 8px 30px rgba(0,0,0,.08)}h1{margin:0 0 8px}.sub{color:#666;margin-bottom:22px}label{display:block;font-weight:800;margin:12px 0 6px}input{width:100%;box-sizing:border-box;padding:13px;border:1px solid #ddd;border-radius:12px;font-size:16px}button,.back,.register{display:block;width:100%;box-sizing:border-box;margin-top:16px;padding:14px;border:0;border-radius:12px;background:#111;color:#fff;font-weight:900;font-size:16px;text-align:center;text-decoration:none}.register{background:#16a34a}.back{background:#eee;color:#111}.err{background:#fee2e2;color:#991b1b;padding:11px;border-radius:10px;margin-bottom:12px}.ok{background:#dcfce7;color:#166534;padding:11px;border-radius:10px;margin-bottom:12px}</style></head><body><div class="box"><div class="card"><h1>🐨 Espace marchand</h1><div class="sub">Connexion Koala Store</div>${error ? `<div class="err">${error}</div>` : ""}${success ? `<div class="ok">${success}</div>` : ""}<form method="post" action="/merchant/login"><label>E-mail</label><input type="email" name="email" autocomplete="username" required><label>Mot de passe</label><input type="password" name="password" autocomplete="current-password" required><button type="submit">Se connecter</button></form><a class="register" href="/merchant/register">Créer un compte marchand</a><a class="back" href="/">Retour au magasin</a></div></div></body></html>`;
+}
+
+function merchantRegisterPage(error = "") {
+  return `<!doctype html><html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Créer un compte marchand</title><style>body{margin:0;background:#f5f5f5;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif;color:#151515}.box{max-width:430px;margin:40px auto;padding:20px}.card{background:#fff;border-radius:22px;padding:24px;box-shadow:0 8px 30px rgba(0,0,0,.08)}h1{margin:0 0 8px}.sub{color:#666;margin-bottom:22px}label{display:block;font-weight:800;margin:12px 0 6px}input{width:100%;box-sizing:border-box;padding:13px;border:1px solid #ddd;border-radius:12px;font-size:16px}button,.back{display:block;width:100%;box-sizing:border-box;margin-top:16px;padding:14px;border:0;border-radius:12px;background:#16a34a;color:#fff;font-weight:900;font-size:16px;text-align:center;text-decoration:none}.back{background:#eee;color:#111}.err{background:#fee2e2;color:#991b1b;padding:11px;border-radius:10px;margin-bottom:12px}</style></head><body><div class="box"><div class="card"><h1>🏪 Créer un compte</h1><div class="sub">Inscription marchand Koala Store</div>${error ? `<div class="err">${error}</div>` : ""}<form method="post" action="/merchant/register"><label>Nom du commerce</label><input name="business_name" maxlength="120" required><label>E-mail</label><input type="email" name="email" autocomplete="username" required><label>Mot de passe</label><input type="password" name="password" minlength="8" autocomplete="new-password" required><button type="submit">Créer mon compte marchand</button></form><a class="back" href="/merchant/login">J’ai déjà un compte</a></div></div></body></html>`;
 }
 
 function merchantDashboardPage(session) {
-  return `<!doctype html><html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Tableau de bord marchand</title><style>body{margin:0;background:#f5f5f5;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif;color:#151515}.wrap{max-width:900px;margin:auto;padding:20px}.top{display:flex;justify-content:space-between;align-items:center}.grid{display:grid;grid-template-columns:repeat(2,1fr);gap:12px;margin-top:20px}.card{background:#fff;border-radius:18px;padding:18px;border:1px solid #eee}.value{font-size:26px;font-weight:950;margin-top:8px}.muted{color:#666}.btn{display:inline-block;background:#111;color:#fff;padding:11px 14px;border-radius:11px;text-decoration:none;font-weight:800}@media(max-width:600px){.grid{grid-template-columns:1fr}}</style></head><body><div class="wrap"><div class="top"><div><h1>🏪 Koala Store</h1><div class="muted">Connecté : ${session.email}</div></div><a class="btn" href="/merchant/logout">Déconnexion</a></div><div class="grid"><div class="card"><b>Commandes</b><div class="value">—</div><div class="muted">Le suivi des commandes sera ajouté à l’étape suivante.</div></div><div class="card"><b>Chiffre d’affaires</b><div class="value">—</div><div class="muted">Données marchand à connecter.</div></div><div class="card"><b>Paiements CB</b><div class="value">${stripe ? "Stripe actif" : "Stripe non configuré"}</div></div><div class="card"><b>Koala Crypto</b><div class="value">Actif</div><div class="muted">${KOALA_CRYPTO_URL}</div></div></div><p><a class="btn" href="/">Voir Koala Store</a></p></div></body></html>`;
+  return `<!doctype html><html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Tableau de bord marchand</title><style>body{margin:0;background:#f5f5f5;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif;color:#151515}.wrap{max-width:900px;margin:auto;padding:20px}.top{display:flex;justify-content:space-between;align-items:center;gap:12px}.grid{display:grid;grid-template-columns:repeat(2,1fr);gap:12px;margin-top:20px}.card{background:#fff;border-radius:18px;padding:18px;border:1px solid #eee}.value{font-size:26px;font-weight:950;margin-top:8px}.muted{color:#666}.btn{display:inline-block;background:#111;color:#fff;padding:11px 14px;border-radius:11px;text-decoration:none;font-weight:800}@media(max-width:600px){.grid{grid-template-columns:1fr}.top{align-items:flex-start;flex-direction:column}}</style></head><body><div class="wrap"><div class="top"><div><h1>🏪 ${session.business_name}</h1><div class="muted">${session.email}</div></div><a class="btn" href="/merchant/logout">Déconnexion</a></div><div class="grid"><div class="card"><b>Commandes</b><div class="value">—</div><div class="muted">Le suivi des commandes sera ajouté ensuite.</div></div><div class="card"><b>Chiffre d’affaires</b><div class="value">—</div><div class="muted">Données marchand à connecter.</div></div><div class="card"><b>Paiements CB</b><div class="value">${stripe ? "Stripe actif" : "Stripe non configuré"}</div></div><div class="card"><b>Koala Crypto</b><div class="value">Actif</div><div class="muted">Compte marchand #${session.merchant_id}</div></div></div><p><a class="btn" href="/">Voir Koala Store</a></p></div></body></html>`;
 }
 
 function readForm(req) {
   return new Promise((resolve,reject) => {
     let body="";
-    req.on("data", c => body += c);
+    req.on("data", c => {
+      body += c;
+      if (body.length > 1000000) req.destroy();
+    });
     req.on("end", () => {
       const p = new URLSearchParams(body);
       resolve(Object.fromEntries(p.entries()));
@@ -68,7 +153,6 @@ function readForm(req) {
     req.on("error", reject);
   });
 }
-
 
 // ============================================================
 // OUTILS HTTP
@@ -1885,22 +1969,79 @@ const server =
           );
 
         if (req.method === "GET" && url.pathname === "/merchant/login") {
-          if (merchantSession(req)) {
+          if (await merchantSession(req)) {
             res.writeHead(302,{Location:"/merchant"});
             return res.end();
           }
           return send(res,200,"text/html; charset=utf-8",merchantLoginPage());
         }
 
+        if (req.method === "GET" && url.pathname === "/merchant/register") {
+          if (await merchantSession(req)) {
+            res.writeHead(302,{Location:"/merchant"});
+            return res.end();
+          }
+          return send(res,200,"text/html; charset=utf-8",merchantRegisterPage());
+        }
+
+        if (req.method === "POST" && url.pathname === "/merchant/register") {
+          if (!pool) {
+            return send(res,503,"text/html; charset=utf-8",merchantRegisterPage("DATABASE_URL n’est pas configurée sur Koala Store."));
+          }
+
+          const form = await readForm(req);
+          const businessName = String(form.business_name || "").trim();
+          const email = String(form.email || "").trim().toLowerCase();
+          const password = String(form.password || "");
+
+          if (!businessName || !email || password.length < 8) {
+            return send(res,400,"text/html; charset=utf-8",merchantRegisterPage("Remplissez tous les champs. Le mot de passe doit contenir au moins 8 caractères."));
+          }
+
+          try {
+            await pool.query(`
+              INSERT INTO store_merchants (business_name,email,password_hash)
+              VALUES ($1,$2,$3)
+            `, [businessName,email,hashPassword(password)]);
+          } catch (error) {
+            if (error && error.code === "23505") {
+              return send(res,409,"text/html; charset=utf-8",merchantRegisterPage("Un compte marchand existe déjà avec cet e-mail."));
+            }
+            throw error;
+          }
+
+          return send(res,200,"text/html; charset=utf-8",merchantLoginPage("", "Compte marchand créé. Vous pouvez maintenant vous connecter."));
+        }
+
         if (req.method === "POST" && url.pathname === "/merchant/login") {
+          if (!pool) {
+            return send(res,503,"text/html; charset=utf-8",merchantLoginPage("DATABASE_URL n’est pas configurée sur Koala Store."));
+          }
+
           const form = await readForm(req);
           const email = String(form.email || "").trim().toLowerCase();
           const password = String(form.password || "");
-          if (email !== MERCHANT_EMAIL || password !== MERCHANT_PASSWORD) {
+
+          const result = await pool.query(`
+            SELECT id,business_name,email,password_hash
+            FROM store_merchants
+            WHERE email = $1
+            LIMIT 1
+          `, [email]);
+
+          const merchant = result.rows[0];
+
+          if (!merchant || !verifyPassword(password, merchant.password_hash)) {
             return send(res,401,"text/html; charset=utf-8",merchantLoginPage("E-mail ou mot de passe incorrect."));
           }
+
           const token = crypto.randomBytes(32).toString("hex");
-          merchantSessions.set(token,{email,createdAt:Date.now()});
+
+          await pool.query(`
+            INSERT INTO store_sessions (token,merchant_id,expires_at)
+            VALUES ($1,$2,NOW() + INTERVAL '1 day')
+          `, [token,merchant.id]);
+
           res.writeHead(302,{
             Location:"/merchant",
             "Set-Cookie":`koala_merchant_session=${token}; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=86400`
@@ -1909,7 +2050,7 @@ const server =
         }
 
         if (req.method === "GET" && url.pathname === "/merchant") {
-          const session = merchantSession(req);
+          const session = await merchantSession(req);
           if (!session) {
             res.writeHead(302,{Location:"/merchant/login"});
             return res.end();
@@ -1919,8 +2060,13 @@ const server =
 
         if (req.method === "GET" && url.pathname === "/merchant/logout") {
           const token = parseCookies(req).koala_merchant_session;
-          if (token) merchantSessions.delete(token);
-          res.writeHead(302,{Location:"/merchant/login","Set-Cookie":"koala_merchant_session=; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=0"});
+          if (pool && token) {
+            await pool.query("DELETE FROM store_sessions WHERE token = $1",[token]);
+          }
+          res.writeHead(302,{
+            Location:"/merchant/login",
+            "Set-Cookie":"koala_merchant_session=; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=0"
+          });
           return res.end();
         }
 
@@ -2027,7 +2173,14 @@ const server =
 // DEMARRAGE
 // ============================================================
 
-server.listen(
+async function start() {
+  if (pool) {
+    await pool.query("SELECT 1");
+    console.log("PostgreSQL partagé connecté.");
+    await initStoreDatabase();
+  }
+
+  server.listen(
   PORT,
   function() {
 
@@ -2055,4 +2208,10 @@ server.listen(
       "API Koala Store -> Crypto : /api/store/orders"
     );
   }
-);
+  );
+}
+
+start().catch(error => {
+  console.error("Impossible de démarrer Koala Store :", error);
+  process.exit(1);
+});
