@@ -119,6 +119,16 @@ async function initStoreDatabase() {
   `);
 
   await pool.query(`
+    ALTER TABLE store_orders
+    ADD COLUMN IF NOT EXISTS paid_amount_eur NUMERIC(12,2) NOT NULL DEFAULT 0
+  `);
+
+  await pool.query(`
+    ALTER TABLE store_orders
+    ADD COLUMN IF NOT EXISTS paid_at TIMESTAMPTZ
+  `);
+
+  await pool.query(`
     DELETE FROM store_sessions
     WHERE expires_at <= NOW()
   `);
@@ -164,7 +174,21 @@ async function merchantDashboardPage(session) {
     const stats = await pool.query(`
       SELECT
         COUNT(*)::int AS order_count,
-        COALESCE(SUM(amount_eur) FILTER (WHERE status IN ('paid','confirmed','created')),0)::numeric AS revenue
+        COALESCE(SUM(
+          CASE
+            WHEN payment_method = 'crypto' THEN (
+              SELECT COALESCE(SUM(i.amount_eur),0)
+              FROM koala_installments i
+              WHERE i.order_id = CASE
+                WHEN store_orders.external_reference ~ '^[0-9]+$'
+                THEN store_orders.external_reference::integer
+                ELSE NULL
+              END
+              AND (i.paid_at IS NOT NULL OR UPPER(COALESCE(i.status,'')) IN ('PAYE','PAYÉ','PAID','CONFIRMED'))
+            )
+            ELSE COALESCE(paid_amount_eur,0)
+          END
+        ),0)::numeric AS revenue
       FROM store_orders
       WHERE merchant_id = $1
     `, [session.merchant_id]);
@@ -192,7 +216,7 @@ async function merchantDashboardPage(session) {
     `).join("")
     : `<div class="muted">Aucune commande enregistrée pour le moment.</div>`;
 
-  return `<!doctype html><html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Tableau de bord marchand</title><style>body{margin:0;background:#f5f5f5;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif;color:#151515}.wrap{max-width:900px;margin:auto;padding:20px}.top{display:flex;justify-content:space-between;align-items:center;gap:12px}.grid{display:grid;grid-template-columns:repeat(2,1fr);gap:12px;margin-top:20px}.card{background:#fff;border-radius:18px;padding:18px;border:1px solid #eee}.value{font-size:26px;font-weight:950;margin-top:8px}.muted{color:#666}.btn{display:inline-block;background:#111;color:#fff;padding:11px 14px;border-radius:11px;text-decoration:none;font-weight:800}.orders{margin-top:14px}.order{display:flex;justify-content:space-between;gap:12px;padding:13px 0;border-bottom:1px solid #eee}.order:last-child{border-bottom:0}@media(max-width:600px){.grid{grid-template-columns:1fr}.top{align-items:flex-start;flex-direction:column}.order{flex-direction:column}}</style></head><body><div class="wrap"><div class="top"><div><h1>🏪 ${session.business_name}</h1><div class="muted">${session.email}</div></div><a class="btn" href="/merchant/logout">Déconnexion</a></div><div class="grid"><div class="card"><b>Commandes</b><div class="value">${orderCount}</div><div class="muted">Commandes enregistrées pour ce marchand.</div></div><div class="card"><b>Chiffre d’affaires</b><div class="value">${money(revenue)} €</div><div class="muted">Total des commandes enregistrées.</div></div><div class="card"><b>Paiements CB</b><div class="value">${stripe ? "Stripe actif" : "Stripe non configuré"}</div></div><div class="card"><b>Koala Crypto</b><div class="value">Actif</div><div class="muted">Compte marchand #${session.merchant_id}</div></div></div><div class="card orders"><h2>Dernières commandes</h2>${orderRows}</div><p><a class="btn" href="/">Voir Koala Store</a></p></div></body></html>`;
+  return `<!doctype html><html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Tableau de bord marchand</title><style>body{margin:0;background:#f5f5f5;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif;color:#151515}.wrap{max-width:900px;margin:auto;padding:20px}.top{display:flex;justify-content:space-between;align-items:center;gap:12px}.grid{display:grid;grid-template-columns:repeat(2,1fr);gap:12px;margin-top:20px}.card{background:#fff;border-radius:18px;padding:18px;border:1px solid #eee}.value{font-size:26px;font-weight:950;margin-top:8px}.muted{color:#666}.btn{display:inline-block;background:#111;color:#fff;padding:11px 14px;border-radius:11px;text-decoration:none;font-weight:800}.orders{margin-top:14px}.order{display:flex;justify-content:space-between;gap:12px;padding:13px 0;border-bottom:1px solid #eee}.order:last-child{border-bottom:0}@media(max-width:600px){.grid{grid-template-columns:1fr}.top{align-items:flex-start;flex-direction:column}.order{flex-direction:column}}</style></head><body><div class="wrap"><div class="top"><div><h1>🏪 ${session.business_name}</h1><div class="muted">${session.email}</div></div><a class="btn" href="/merchant/logout">Déconnexion</a></div><div class="grid"><div class="card"><b>Commandes</b><div class="value">${orderCount}</div><div class="muted">Commandes enregistrées pour ce marchand.</div></div><div class="card"><b>Encaissé réel</b><div class="value">${money(revenue)} €</div><div class="muted">Uniquement les paiements réellement confirmés.</div></div><div class="card"><b>Paiements CB</b><div class="value">${stripe ? "Stripe actif" : "Stripe non configuré"}</div></div><div class="card"><b>Koala Crypto</b><div class="value">Actif</div><div class="muted">Compte marchand #${session.merchant_id}</div></div></div><div class="card orders"><h2>Dernières commandes</h2>${orderRows}</div><p><a class="btn" href="/">Voir Koala Store</a></p></div></body></html>`;
 }
 
 function readForm(req) {
@@ -1768,6 +1792,26 @@ async function createStripeCheckout(req,res) {
   );
 }
 
+async function confirmStripeSessionPayment(sessionId) {
+  if (!stripe || !pool || !sessionId) return false;
+
+  const session = await stripe.checkout.sessions.retrieve(String(sessionId));
+  if (session.payment_status !== "paid") return false;
+
+  const result = await pool.query(`
+    UPDATE store_orders
+    SET status = 'paid',
+        paid_amount_eur = amount_eur,
+        paid_at = COALESCE(paid_at, NOW()),
+        updated_at = NOW()
+    WHERE payment_method = 'card'
+      AND external_reference = $1
+    RETURNING id
+  `, [String(sessionId)]);
+
+  return result.rowCount > 0;
+}
+
 // ============================================================
 // KOALA CRYPTO CHECKOUT
 // ============================================================
@@ -2084,6 +2128,18 @@ const server =
             req.url,
             KOALA_STORE_URL
           );
+
+        if (req.method === "GET" && url.pathname === "/" && url.searchParams.get("stripe") === "success") {
+          const sessionId = url.searchParams.get("session_id") || "";
+          if (sessionId) {
+            try {
+              await confirmStripeSessionPayment(sessionId);
+            } catch (error) {
+              console.error("Vérification Stripe impossible :", error.message);
+            }
+          }
+          return send(res,200,"text/html; charset=utf-8",pageHtml(url));
+        }
 
         if (req.method === "GET" && url.pathname === "/merchant/login") {
           if (await merchantSession(req)) {
