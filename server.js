@@ -99,6 +99,26 @@ async function initStoreDatabase() {
   `);
 
   await pool.query(`
+    CREATE TABLE IF NOT EXISTS store_orders (
+      id BIGSERIAL PRIMARY KEY,
+      merchant_id BIGINT NOT NULL REFERENCES store_merchants(id) ON DELETE CASCADE,
+      payment_method TEXT NOT NULL,
+      amount_eur NUMERIC(12,2) NOT NULL,
+      installments_count INTEGER,
+      status TEXT NOT NULL DEFAULT 'created',
+      external_reference TEXT,
+      items_json JSONB NOT NULL DEFAULT '[]'::jsonb,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `);
+
+  await pool.query(`
+    CREATE INDEX IF NOT EXISTS store_orders_merchant_id_idx
+    ON store_orders(merchant_id, created_at DESC)
+  `);
+
+  await pool.query(`
     DELETE FROM store_sessions
     WHERE expires_at <= NOW()
   `);
@@ -135,8 +155,44 @@ function merchantRegisterPage(error = "") {
   return `<!doctype html><html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Créer un compte marchand</title><style>body{margin:0;background:#f5f5f5;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif;color:#151515}.box{max-width:430px;margin:40px auto;padding:20px}.card{background:#fff;border-radius:22px;padding:24px;box-shadow:0 8px 30px rgba(0,0,0,.08)}h1{margin:0 0 8px}.sub{color:#666;margin-bottom:22px}label{display:block;font-weight:800;margin:12px 0 6px}input{width:100%;box-sizing:border-box;padding:13px;border:1px solid #ddd;border-radius:12px;font-size:16px}button,.back{display:block;width:100%;box-sizing:border-box;margin-top:16px;padding:14px;border:0;border-radius:12px;background:#16a34a;color:#fff;font-weight:900;font-size:16px;text-align:center;text-decoration:none}.back{background:#eee;color:#111}.err{background:#fee2e2;color:#991b1b;padding:11px;border-radius:10px;margin-bottom:12px}</style></head><body><div class="box"><div class="card"><h1>🏪 Créer un compte</h1><div class="sub">Inscription marchand Koala Store</div>${error ? `<div class="err">${error}</div>` : ""}<form method="post" action="/merchant/register"><label>Nom du commerce</label><input name="business_name" maxlength="120" required><label>E-mail</label><input type="email" name="email" autocomplete="username" required><label>Mot de passe</label><input type="password" name="password" minlength="8" autocomplete="new-password" required><button type="submit">Créer mon compte marchand</button></form><a class="back" href="/merchant/login">J’ai déjà un compte</a></div></div></body></html>`;
 }
 
-function merchantDashboardPage(session) {
-  return `<!doctype html><html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Tableau de bord marchand</title><style>body{margin:0;background:#f5f5f5;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif;color:#151515}.wrap{max-width:900px;margin:auto;padding:20px}.top{display:flex;justify-content:space-between;align-items:center;gap:12px}.grid{display:grid;grid-template-columns:repeat(2,1fr);gap:12px;margin-top:20px}.card{background:#fff;border-radius:18px;padding:18px;border:1px solid #eee}.value{font-size:26px;font-weight:950;margin-top:8px}.muted{color:#666}.btn{display:inline-block;background:#111;color:#fff;padding:11px 14px;border-radius:11px;text-decoration:none;font-weight:800}@media(max-width:600px){.grid{grid-template-columns:1fr}.top{align-items:flex-start;flex-direction:column}}</style></head><body><div class="wrap"><div class="top"><div><h1>🏪 ${session.business_name}</h1><div class="muted">${session.email}</div></div><a class="btn" href="/merchant/logout">Déconnexion</a></div><div class="grid"><div class="card"><b>Commandes</b><div class="value">—</div><div class="muted">Le suivi des commandes sera ajouté ensuite.</div></div><div class="card"><b>Chiffre d’affaires</b><div class="value">—</div><div class="muted">Données marchand à connecter.</div></div><div class="card"><b>Paiements CB</b><div class="value">${stripe ? "Stripe actif" : "Stripe non configuré"}</div></div><div class="card"><b>Koala Crypto</b><div class="value">Actif</div><div class="muted">Compte marchand #${session.merchant_id}</div></div></div><p><a class="btn" href="/">Voir Koala Store</a></p></div></body></html>`;
+async function merchantDashboardPage(session) {
+  let orderCount = 0;
+  let revenue = 0;
+  let orders = [];
+
+  if (pool) {
+    const stats = await pool.query(`
+      SELECT
+        COUNT(*)::int AS order_count,
+        COALESCE(SUM(amount_eur) FILTER (WHERE status IN ('paid','confirmed','created')),0)::numeric AS revenue
+      FROM store_orders
+      WHERE merchant_id = $1
+    `, [session.merchant_id]);
+
+    orderCount = Number(stats.rows[0]?.order_count || 0);
+    revenue = Number(stats.rows[0]?.revenue || 0);
+
+    const recent = await pool.query(`
+      SELECT id,payment_method,amount_eur,installments_count,status,external_reference,created_at
+      FROM store_orders
+      WHERE merchant_id = $1
+      ORDER BY created_at DESC
+      LIMIT 20
+    `, [session.merchant_id]);
+
+    orders = recent.rows;
+  }
+
+  const orderRows = orders.length
+    ? orders.map(order => `
+      <div class="order">
+        <div><b>Commande #${order.id}</b><div class="muted">${new Date(order.created_at).toLocaleString("fr-FR")}</div></div>
+        <div><b>${money(order.amount_eur)} €</b><div class="muted">${order.payment_method === "crypto" ? "Koala Crypto" : "Carte bancaire"}${order.installments_count ? " · " + order.installments_count + "x" : ""}</div></div>
+      </div>
+    `).join("")
+    : `<div class="muted">Aucune commande enregistrée pour le moment.</div>`;
+
+  return `<!doctype html><html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Tableau de bord marchand</title><style>body{margin:0;background:#f5f5f5;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif;color:#151515}.wrap{max-width:900px;margin:auto;padding:20px}.top{display:flex;justify-content:space-between;align-items:center;gap:12px}.grid{display:grid;grid-template-columns:repeat(2,1fr);gap:12px;margin-top:20px}.card{background:#fff;border-radius:18px;padding:18px;border:1px solid #eee}.value{font-size:26px;font-weight:950;margin-top:8px}.muted{color:#666}.btn{display:inline-block;background:#111;color:#fff;padding:11px 14px;border-radius:11px;text-decoration:none;font-weight:800}.orders{margin-top:14px}.order{display:flex;justify-content:space-between;gap:12px;padding:13px 0;border-bottom:1px solid #eee}.order:last-child{border-bottom:0}@media(max-width:600px){.grid{grid-template-columns:1fr}.top{align-items:flex-start;flex-direction:column}.order{flex-direction:column}}</style></head><body><div class="wrap"><div class="top"><div><h1>🏪 ${session.business_name}</h1><div class="muted">${session.email}</div></div><a class="btn" href="/merchant/logout">Déconnexion</a></div><div class="grid"><div class="card"><b>Commandes</b><div class="value">${orderCount}</div><div class="muted">Commandes enregistrées pour ce marchand.</div></div><div class="card"><b>Chiffre d’affaires</b><div class="value">${money(revenue)} €</div><div class="muted">Total des commandes enregistrées.</div></div><div class="card"><b>Paiements CB</b><div class="value">${stripe ? "Stripe actif" : "Stripe non configuré"}</div></div><div class="card"><b>Koala Crypto</b><div class="value">Actif</div><div class="muted">Compte marchand #${session.merchant_id}</div></div></div><div class="card orders"><h2>Dernières commandes</h2>${orderRows}</div><p><a class="btn" href="/">Voir Koala Store</a></p></div></body></html>`;
 }
 
 function readForm(req) {
@@ -1585,6 +1641,36 @@ updateCart();
 </html>`;
 }
 
+async function saveStoreOrder({ merchantId, paymentMethod, amountEur, installmentsCount = null, status = "created", externalReference = null, items = [] }) {
+  if (!pool) return null;
+
+  const merchantCheck = await pool.query(
+    "SELECT id FROM store_merchants WHERE id = $1 LIMIT 1",
+    [merchantId]
+  );
+
+  if (!merchantCheck.rows[0]) {
+    throw new Error("Compte marchand introuvable.");
+  }
+
+  const result = await pool.query(`
+    INSERT INTO store_orders
+      (merchant_id,payment_method,amount_eur,installments_count,status,external_reference,items_json)
+    VALUES ($1,$2,$3,$4,$5,$6,$7::jsonb)
+    RETURNING id
+  `, [
+    merchantId,
+    paymentMethod,
+    Number(amountEur).toFixed(2),
+    installmentsCount,
+    status,
+    externalReference,
+    JSON.stringify(Array.isArray(items) ? items : [])
+  ]);
+
+  return result.rows[0]?.id || null;
+}
+
 // ============================================================
 // STRIPE CHECKOUT
 // ============================================================
@@ -1605,6 +1691,8 @@ async function createStripeCheckout(req,res) {
 
   const body =
     await readJson(req);
+
+  const merchantId = Number(body.merchantId || 1);
 
   const amount =
     Math.round(
@@ -1662,6 +1750,15 @@ async function createStripeCheckout(req,res) {
           `${KOALA_STORE_URL}/?stripe=cancel`
       });
 
+  await saveStoreOrder({
+    merchantId,
+    paymentMethod:"card",
+    amountEur:Number(body.amountEur),
+    status:"created",
+    externalReference:session.id,
+    items:body.items
+  });
+
   return json(
     res,
     200,
@@ -1682,6 +1779,9 @@ async function createKoalaCheckout(req,res) {
 
   const amountEur =
     Number(body.amountEur);
+
+  const merchantId =
+    Number(body.merchantId || 1);
 
   const installmentsCount =
     Number(
@@ -1724,7 +1824,7 @@ async function createKoalaCheckout(req,res) {
 
   const payload = {
 
-    merchantId:1,
+    merchantId:merchantId,
 
     amountEur:
       amountEur,
@@ -1943,6 +2043,23 @@ async function createKoalaCheckout(req,res) {
     target
   );
 
+  const externalReference =
+    data.orderId ||
+    data.order_id ||
+    (data.order && (data.order.id || data.order.orderId || data.order.order_id)) ||
+    token ||
+    null;
+
+  await saveStoreOrder({
+    merchantId,
+    paymentMethod:"crypto",
+    amountEur,
+    installmentsCount,
+    status:"created",
+    externalReference:externalReference ? String(externalReference) : null,
+    items:body.items
+  });
+
   return json(
     res,
     200,
@@ -2055,7 +2172,7 @@ const server =
             res.writeHead(302,{Location:"/merchant/login"});
             return res.end();
           }
-          return send(res,200,"text/html; charset=utf-8",merchantDashboardPage(session));
+          return send(res,200,"text/html; charset=utf-8",await merchantDashboardPage(session));
         }
 
         if (req.method === "GET" && url.pathname === "/merchant/logout") {
