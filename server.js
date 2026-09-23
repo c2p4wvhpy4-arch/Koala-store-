@@ -1221,26 +1221,6 @@ const products = [
 },
 
 {
-  id:5,
-  name:"Écouteurs sans fil",
-  category:"Tech",
-  price:24.99,
-  oldPrice:39.99,
-  emoji:"🎧",
-  sold:"3,1 k+ vendus"
-},
-
-{
-  id:6,
-  name:"Montre connectée",
-  category:"Tech",
-  price:34.99,
-  oldPrice:54.99,
-  emoji:"⌚",
-  sold:"950+ vendus"
-},
-
-{
   id:7,
   name:"Lampe design",
   category:"Maison",
@@ -1281,16 +1261,6 @@ const products = [
 },
 
 {
-  id:11,
-  name:"Enceinte Bluetooth",
-  category:"Tech",
-  price:29.99,
-  oldPrice:44.99,
-  emoji:"🔊",
-  sold:"790+ vendus"
-},
-
-{
   id:12,
   name:"Mug Koala",
   category:"Maison",
@@ -1298,6 +1268,206 @@ const products = [
   oldPrice:14.99,
   emoji:"☕",
   sold:"2,3 k+ vendus"
+},
+
+{
+  id:101,
+  name:"iPhone 18 Pro",
+  category:"Tech",
+  price:1479,
+  oldPrice:1599,
+  emoji:"📱",
+  sold:"Nouveau"
+},
+
+{
+  id:102,
+  name:"iPhone 18 Pro Max",
+  category:"Tech",
+  price:1599,
+  oldPrice:1749,
+  emoji:"📱",
+  sold:"Nouveau"
+},
+
+{
+  id:103,
+  name:"iPhone 17",
+  category:"Tech",
+  price:1119,
+  oldPrice:1249,
+  emoji:"📱",
+  sold:"Populaire"
+},
+
+{
+  id:104,
+  name:"iPhone 17e",
+  category:"Tech",
+  price:869,
+  oldPrice:999,
+  emoji:"📱",
+  sold:"Nouveau"
+},
+
+{
+  id:105,
+  name:"iPhone Air",
+  category:"Tech",
+  price:1329,
+  oldPrice:1449,
+  emoji:"📱",
+  sold:"Nouveau"
+},
+
+{
+  id:106,
+  name:"MacBook Neo",
+  category:"Tech",
+  price:799,
+  oldPrice:899,
+  emoji:"💻",
+  sold:"Nouveau"
+},
+
+{
+  id:107,
+  name:"MacBook Air M5",
+  category:"Tech",
+  price:1399,
+  oldPrice:1549,
+  emoji:"💻",
+  sold:"Populaire"
+},
+
+{
+  id:108,
+  name:"MacBook Pro M5",
+  category:"Tech",
+  price:2199,
+  oldPrice:2399,
+  emoji:"💻",
+  sold:"Pro"
+},
+
+{
+  id:109,
+  name:"Mac mini",
+  category:"Tech",
+  price:1049,
+  oldPrice:1149,
+  emoji:"🖥️",
+  sold:"Nouveau"
+},
+
+{
+  id:110,
+  name:"Mac Studio",
+  category:"Tech",
+  price:2999,
+  oldPrice:3299,
+  emoji:"🖥️",
+  sold:"Pro"
+},
+
+{
+  id:111,
+  name:"iPad Pro",
+  category:"Tech",
+  price:1319,
+  oldPrice:1449,
+  emoji:"📱",
+  sold:"Pro"
+},
+
+{
+  id:112,
+  name:"iPad Air 13 pouces M4",
+  category:"Tech",
+  price:1019,
+  oldPrice:1149,
+  emoji:"📱",
+  sold:"Nouveau"
+},
+
+{
+  id:113,
+  name:"iPad A16",
+  category:"Tech",
+  price:409,
+  oldPrice:459,
+  emoji:"📱",
+  sold:"Populaire"
+},
+
+{
+  id:114,
+  name:"iPad mini A17 Pro",
+  category:"Tech",
+  price:609,
+  oldPrice:679,
+  emoji:"📱",
+  sold:"Compact"
+},
+
+{
+  id:115,
+  name:"Apple Watch Series 12",
+  category:"Tech",
+  price:449,
+  oldPrice:499,
+  emoji:"⌚",
+  sold:"Nouveau"
+},
+
+{
+  id:116,
+  name:"Apple Watch Ultra 4",
+  category:"Tech",
+  price:899,
+  oldPrice:999,
+  emoji:"⌚",
+  sold:"Ultra"
+},
+
+{
+  id:117,
+  name:"Apple Watch SE 3",
+  category:"Tech",
+  price:279,
+  oldPrice:329,
+  emoji:"⌚",
+  sold:"Populaire"
+},
+
+{
+  id:118,
+  name:"AirPods 5",
+  category:"Tech",
+  price:149,
+  oldPrice:179,
+  emoji:"🎧",
+  sold:"Nouveau"
+},
+
+{
+  id:119,
+  name:"AirPods Pro 3",
+  category:"Tech",
+  price:249,
+  oldPrice:279,
+  emoji:"🎧",
+  sold:"Pro"
+},
+
+{
+  id:120,
+  name:"AirPods Max 2",
+  category:"Tech",
+  price:579,
+  oldPrice:629,
+  emoji:"🎧",
+  sold:"Premium"
 }
 
 ];
