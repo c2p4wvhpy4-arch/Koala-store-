@@ -684,6 +684,73 @@ button {
   font-weight: 850;
 }
 
+
+.product-detail-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  z-index: 650;
+  background: #f5f5f5;
+  overflow-y: auto;
+}
+.product-detail-overlay.show { display: block; }
+.product-detail-page {
+  max-width: 760px;
+  margin: 0 auto;
+  min-height: 100vh;
+  background: white;
+  padding-bottom: 30px;
+}
+.product-detail-top {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 13px;
+  background: rgba(255,255,255,.96);
+  border-bottom: 1px solid #eee;
+}
+.product-detail-back {
+  border: 0;
+  background: #f1f5f9;
+  border-radius: 999px;
+  width: 40px;
+  height: 40px;
+  font-size: 20px;
+}
+.product-detail-title { font-weight: 950; font-size: 18px; }
+.product-detail-hero {
+  height: 330px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 120px;
+  background: linear-gradient(145deg,#f8fafc,#e5e7eb);
+}
+.product-detail-body { padding: 20px; }
+.product-detail-name { font-size: 28px; font-weight: 950; }
+.product-detail-category { color: #666; margin-top: 5px; }
+.product-detail-price { font-size: 30px; font-weight: 950; margin-top: 16px; }
+.product-detail-old { color: #888; text-decoration: line-through; margin-left: 8px; font-size: 16px; }
+.product-detail-description {
+  margin-top: 20px; line-height: 1.55; color: #444;
+}
+.product-detail-specs {
+  margin-top: 18px; background: #f8fafc; border-radius: 16px; padding: 16px;
+}
+.product-detail-specs div {
+  padding: 9px 0; border-bottom: 1px solid #e5e7eb;
+  display: flex; justify-content: space-between; gap: 15px;
+}
+.product-detail-specs div:last-child { border-bottom: 0; }
+.product-detail-add {
+  width: 100%; margin-top: 20px; padding: 16px; border: 0;
+  border-radius: 13px; background: #111; color: white;
+  font-size: 17px; font-weight: 950;
+}
+
 .overlay {
   display: none;
   position: fixed;
@@ -1012,6 +1079,17 @@ Meilleurs choix
 </div>
 
 <div class="products" id="products"></div>
+
+
+<div class="product-detail-overlay" id="product-detail-overlay">
+  <div class="product-detail-page">
+    <div class="product-detail-top">
+      <button class="product-detail-back" onclick="closeProductDetail()">←</button>
+      <div class="product-detail-title">Détail du produit</div>
+    </div>
+    <div id="product-detail-content"></div>
+  </div>
+</div>
 
 <div class="overlay" id="cart-overlay">
 
@@ -1537,7 +1615,7 @@ function renderProducts() {
           );
 
         return (
-          '<div class="product">' +
+          '<div class="product" onclick="openProductDetail(' + product.id + ')">' +
 
             '<div class="product-image">' +
               product.emoji +
@@ -1568,7 +1646,7 @@ function renderProducts() {
                 eur(product.price) +
               '</div>' +
 
-              '<button class="add" onclick="addProduct(' +
+              '<button class="add" onclick="event.stopPropagation();addProduct(' +
                 product.id +
                 ')">' +
                 'Ajouter au panier' +
@@ -1581,6 +1659,66 @@ function renderProducts() {
 
       }).join("");
 }
+
+
+function productDescription(product) {
+  const name = product.name.toLowerCase();
+  if (name.includes("iphone")) return "Découvrez cet iPhone dans Koala Store. Consultez son prix et ajoutez-le directement à votre panier.";
+  if (name.includes("macbook")) return "Ordinateur portable Apple pour le travail, les études et les usages quotidiens.";
+  if (name.includes("mac mini") || name.includes("mac studio")) return "Mac de bureau Apple conçu pour offrir puissance et simplicité dans un format soigné.";
+  if (name.includes("ipad")) return "Tablette Apple polyvalente pour le divertissement, la création et la productivité.";
+  if (name.includes("watch")) return "Montre Apple connectée avec les fonctions essentielles au poignet.";
+  if (name.includes("airpods")) return "Écouteurs Apple sans fil pensés pour une utilisation simple avec l’écosystème Apple.";
+  if (product.category === "Mode") return "Article de mode disponible dans Koala Store. Retrouvez son prix, sa remise et ajoutez-le directement à votre panier.";
+  if (product.category === "Maison") return "Article pour la maison disponible dans Koala Store. Consultez les informations du produit avant de l’ajouter au panier.";
+  if (product.category === "Accessoires") return "Accessoire disponible dans Koala Store. Consultez son prix et ajoutez-le directement à votre panier.";
+  return "Produit disponible dans Koala Store.";
+}
+
+function appleFamily(product) {
+  const n = product.name.toLowerCase();
+  if (n.includes("iphone")) return "iPhone";
+  if (n.includes("mac")) return "Mac";
+  if (n.includes("ipad")) return "iPad";
+  if (n.includes("watch")) return "Apple Watch";
+  if (n.includes("airpods")) return "AirPods";
+  return "Apple";
+}
+
+function openProductDetail(id) {
+  const product = products.find(function(item) { return item.id === id; });
+  if (!product) return;
+
+  const discount = Math.round((1 - product.price / product.oldPrice) * 100);
+  const isApple = product.category === "Tech";
+
+  document.getElementById("product-detail-content").innerHTML =
+    '<div class="product-detail-hero">' + product.emoji + '</div>' +
+    '<div class="product-detail-body">' +
+      '<div class="product-detail-name">' + product.name + '</div>' +
+      '<div class="product-detail-category">' + (isApple ? 'Apple · ' : '') + product.category + '</div>' +
+      '<div class="product-detail-price">' + eur(product.price) +
+        '<span class="product-detail-old">' + eur(product.oldPrice) + '</span></div>' +
+      '<div class="discount">-' + discount + '%</div>' +
+      '<div class="product-detail-description">' + productDescription(product) + '</div>' +
+      '<div class="product-detail-specs">' +
+        '<div><span>Marque</span><b>' + (isApple ? 'Apple' : 'Koala Store') + '</b></div>' +
+        '<div><span>Famille</span><b>' + (isApple ? appleFamily(product) : product.category) + '</b></div>' +
+        '<div><span>Catégorie</span><b>' + product.category + '</b></div>' +
+        '<div><span>Disponibilité</span><b>En stock</b></div>' +
+      '</div>' +
+      '<button class="product-detail-add" onclick="addProduct(' + product.id + ');openCart()">Ajouter au panier · ' + eur(product.price) + '</button>' +
+    '</div>';
+
+  document.getElementById("product-detail-overlay").classList.add("show");
+  document.body.style.overflow = "hidden";
+}
+
+function closeProductDetail() {
+  document.getElementById("product-detail-overlay").classList.remove("show");
+  document.body.style.overflow = "";
+}
+
 
 // ============================================================
 // CATEGORIES
