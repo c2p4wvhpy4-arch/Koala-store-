@@ -1663,16 +1663,68 @@ function renderProducts() {
 
 function productDescription(product) {
   const name = product.name.toLowerCase();
-  if (name.includes("iphone")) return "Découvrez cet iPhone dans Koala Store. Consultez son prix et ajoutez-le directement à votre panier.";
-  if (name.includes("macbook")) return "Ordinateur portable Apple pour le travail, les études et les usages quotidiens.";
-  if (name.includes("mac mini") || name.includes("mac studio")) return "Mac de bureau Apple conçu pour offrir puissance et simplicité dans un format soigné.";
-  if (name.includes("ipad")) return "Tablette Apple polyvalente pour le divertissement, la création et la productivité.";
-  if (name.includes("watch")) return "Montre Apple connectée avec les fonctions essentielles au poignet.";
-  if (name.includes("airpods")) return "Écouteurs Apple sans fil pensés pour une utilisation simple avec l’écosystème Apple.";
-  if (product.category === "Mode") return "Article de mode disponible dans Koala Store. Retrouvez son prix, sa remise et ajoutez-le directement à votre panier.";
-  if (product.category === "Maison") return "Article pour la maison disponible dans Koala Store. Consultez les informations du produit avant de l’ajouter au panier.";
-  if (product.category === "Accessoires") return "Accessoire disponible dans Koala Store. Consultez son prix et ajoutez-le directement à votre panier.";
-  return "Produit disponible dans Koala Store.";
+
+  if (name.includes("iphone")) return "Un smartphone Apple pensé pour accompagner les usages du quotidien : communication, photos, vidéos, applications, navigation et divertissement. Cette fiche Koala Store vous permet de retrouver le produit, son positionnement dans la gamme et son prix avant de l’ajouter au panier.";
+  if (name.includes("macbook")) return "Un ordinateur portable Apple conçu pour combiner mobilité, confort d’utilisation et polyvalence. Il convient aux études, au travail, à la navigation, au multimédia et aux tâches créatives, tout en conservant le format pratique d’un ordinateur portable.";
+  if (name.includes("mac mini")) return "Un ordinateur de bureau Apple au format compact, pensé pour créer un poste de travail discret et polyvalent. Il peut être associé à votre écran, clavier et souris pour une installation adaptée au bureau comme à la maison.";
+  if (name.includes("mac studio")) return "Un Mac de bureau orienté vers les utilisateurs qui recherchent une station de travail compacte pour des usages soutenus et créatifs. Son format permet de construire un espace de travail complet avec les périphériques de votre choix.";
+  if (name.includes("ipad")) return "Une tablette Apple polyvalente adaptée à la consultation de contenus, aux applications, à la vidéo, à la prise de notes et à de nombreux usages créatifs. Son format tactile permet une utilisation aussi bien à la maison qu’en déplacement.";
+  if (name.includes("watch")) return "Une montre connectée Apple conçue pour garder les informations et fonctions utiles directement au poignet. Elle complète l’expérience mobile avec les notifications, les applications compatibles et les fonctions proposées par la gamme Apple Watch.";
+  if (name.includes("airpods max")) return "Un casque audio sans fil Apple destiné à une écoute confortable et immersive au quotidien. Il s’intègre à l’écosystème Apple et convient à la musique, aux vidéos, aux appels et aux déplacements.";
+  if (name.includes("airpods")) return "Des écouteurs sans fil Apple pensés pour écouter de la musique, regarder des vidéos et passer des appels sans câble. Leur format compact facilite leur utilisation quotidienne et leur transport.";
+
+  if (name.includes("t-shirt")) return "Un t-shirt Koala au style simple et facile à porter au quotidien. Il peut être associé à un jean, un pantalon ou un short pour composer une tenue décontractée. Une pièce polyvalente de la collection Mode Koala Store.";
+  if (name.includes("sweat")) return "Un sweat Koala au look urbain, pensé pour compléter une tenue décontractée. Facile à porter au quotidien, il peut être utilisé seul ou en superposition selon la saison.";
+  if (name.includes("baskets")) return "Des baskets au style urbain conçues pour compléter facilement une tenue quotidienne. Leur silhouette polyvalente s’accorde avec différentes pièces de la collection Mode Koala Store.";
+  if (name.includes("casquette")) return "Une casquette Koala pensée comme un accessoire simple pour compléter une tenue décontractée. Son style polyvalent permet de l’associer facilement aux vêtements de la boutique.";
+  if (name.includes("sac")) return "Un sac Koala City pratique pour transporter les essentiels du quotidien. Son style urbain en fait un accessoire adapté aux sorties, aux déplacements et à une utilisation régulière.";
+  if (name.includes("lunettes")) return "Des lunettes tendance conçues pour apporter une touche supplémentaire à une tenue. Un accessoire léger et facile à associer avec différents styles proposés dans Koala Store.";
+  if (name.includes("lampe")) return "Une lampe décorative pensée pour apporter un éclairage d’ambiance et compléter l’aménagement d’une pièce. Son design permet de l’intégrer facilement dans un bureau, une chambre ou un espace de vie.";
+  if (name.includes("coussin")) return "Un coussin décoratif Koala conçu pour apporter une touche chaleureuse à un canapé, un fauteuil ou une chambre. Il complète facilement une décoration intérieure décontractée.";
+  if (name.includes("mug")) return "Un mug Koala destiné aux boissons chaudes ou froides du quotidien. Son design en fait aussi un petit accessoire décoratif pour la maison ou le bureau.";
+
+  if (product.category === "Mode") return "Un article de mode Koala Store pensé pour une utilisation quotidienne et facile à associer avec différentes tenues.";
+  if (product.category === "Maison") return "Un article Koala Store destiné à compléter l’équipement ou la décoration de votre intérieur.";
+  if (product.category === "Accessoires") return "Un accessoire Koala Store pensé pour compléter votre équipement ou votre tenue au quotidien.";
+  return "Produit disponible dans Koala Store. Consultez sa présentation, son prix et ses informations avant de l’ajouter au panier.";
+}
+
+function productHighlights(product) {
+  const name = product.name.toLowerCase();
+  let items = [];
+
+  if (name.includes("iphone")) items = ["Smartphone de la gamme Apple", "Pensé pour les usages mobiles du quotidien", "Photo, vidéo, applications et communication", "Intégration à l’écosystème Apple"];
+  else if (name.includes("macbook")) items = ["Ordinateur portable Apple", "Format adapté à la mobilité", "Travail, études et multimédia", "Intégration à l’écosystème Apple"];
+  else if (name.includes("mac mini") || name.includes("mac studio")) items = ["Ordinateur de bureau Apple", "Format compact", "Compatible avec un poste de travail complet", "Pensé pour une utilisation fixe"];
+  else if (name.includes("ipad")) items = ["Tablette tactile Apple", "Format mobile et polyvalent", "Applications, vidéo et navigation", "Adaptée au travail comme au divertissement"];
+  else if (name.includes("watch")) items = ["Montre connectée Apple", "Informations accessibles au poignet", "Notifications et applications compatibles", "Complément de l’écosystème Apple"];
+  else if (name.includes("airpods max")) items = ["Casque audio sans fil", "Écoute, appels et multimédia", "Utilisation mobile", "Intégration à l’écosystème Apple"];
+  else if (name.includes("airpods")) items = ["Écouteurs sans fil", "Format compact", "Musique, vidéo et appels", "Intégration à l’écosystème Apple"];
+  else if (product.category === "Mode") items = ["Style décontracté", "Facile à associer", "Pensé pour le quotidien", "Collection Mode Koala Store"];
+  else if (product.category === "Maison") items = ["Pour la maison", "Usage quotidien", "Design décoratif", "Collection Maison Koala Store"];
+  else items = ["Accessoire pratique", "Usage quotidien", "Style polyvalent", "Collection Koala Store"];
+
+  return '<div class="product-detail-specs"><h3 style="margin:0 0 8px">Points forts</h3>' +
+    items.map(function(item) { return '<div><span>✓</span><b style="text-align:right">' + item + '</b></div>'; }).join("") +
+    '</div>';
+}
+
+function productExtraSpecs(product) {
+  const name = product.name.toLowerCase();
+  const rows = [];
+
+  if (name.includes("iphone")) rows.push(["Type", "Smartphone"], ["Usage", "Mobile / multimédia"], ["Écosystème", "Apple"]);
+  else if (name.includes("macbook")) rows.push(["Type", "Ordinateur portable"], ["Usage", "Travail / études / création"], ["Écosystème", "Apple"]);
+  else if (name.includes("mac mini") || name.includes("mac studio")) rows.push(["Type", "Ordinateur de bureau"], ["Installation", "Poste fixe"], ["Écosystème", "Apple"]);
+  else if (name.includes("ipad")) rows.push(["Type", "Tablette tactile"], ["Usage", "Mobilité / création / multimédia"], ["Écosystème", "Apple"]);
+  else if (name.includes("watch")) rows.push(["Type", "Montre connectée"], ["Usage", "Poignet / mobilité"], ["Écosystème", "Apple"]);
+  else if (name.includes("airpods max")) rows.push(["Type", "Casque sans fil"], ["Usage", "Audio / appels"], ["Écosystème", "Apple"]);
+  else if (name.includes("airpods")) rows.push(["Type", "Écouteurs sans fil"], ["Usage", "Audio / appels"], ["Écosystème", "Apple"]);
+  else rows.push(["Type", product.category], ["Collection", "Koala Store"], ["Usage", "Quotidien"]);
+
+  return rows.map(function(row) {
+    return '<div><span>' + row[0] + '</span><b>' + row[1] + '</b></div>';
+  }).join("");
 }
 
 function appleFamily(product) {
@@ -1700,12 +1752,20 @@ function openProductDetail(id) {
       '<div class="product-detail-price">' + eur(product.price) +
         '<span class="product-detail-old">' + eur(product.oldPrice) + '</span></div>' +
       '<div class="discount">-' + discount + '%</div>' +
-      '<div class="product-detail-description">' + productDescription(product) + '</div>' +
+      '<div class="product-detail-description"><h3 style="margin:0 0 8px;color:#151515">Description</h3>' + productDescription(product) + '</div>' +
+      productHighlights(product) +
       '<div class="product-detail-specs">' +
+        '<h3 style="margin:0 0 8px">Informations produit</h3>' +
         '<div><span>Marque</span><b>' + (isApple ? 'Apple' : 'Koala Store') + '</b></div>' +
         '<div><span>Famille</span><b>' + (isApple ? appleFamily(product) : product.category) + '</b></div>' +
         '<div><span>Catégorie</span><b>' + product.category + '</b></div>' +
+        productExtraSpecs(product) +
         '<div><span>Disponibilité</span><b>En stock</b></div>' +
+      '</div>' +
+      '<div class="product-detail-specs">' +
+        '<h3 style="margin:0 0 8px">Achat sur Koala Store</h3>' +
+        '<div><span>Paiement</span><b>Carte bancaire ou Koala Crypto</b></div>' +
+        '<div><span>Panier</span><b>Ajout immédiat</b></div>' +
       '</div>' +
       '<button class="product-detail-add" onclick="addProduct(' + product.id + ');openCart()">Ajouter au panier · ' + eur(product.price) + '</button>' +
     '</div>';
